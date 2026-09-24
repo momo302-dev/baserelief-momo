@@ -11,7 +11,6 @@
 <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 <style>
-/* ============ fondasi ============ */
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --bg:#0b0b09; --bg2:#070706; --panel:#0e0e0b;
@@ -30,7 +29,6 @@ body{background:var(--bg);color:var(--ink);font-family:var(--f-b);font-weight:30
 button{font-family:var(--f-b)}
 svg.lucide{width:14px;height:14px;stroke-width:1.75}
 
-/* ============ header ============ */
 header{display:flex;align-items:center;gap:16px;padding:0 28px;height:64px;border-bottom:1px solid var(--line);position:relative}
 header::after{content:'';position:absolute;left:0;right:0;bottom:-4px;height:1px;background:var(--line2)}
 .brand{display:flex;align-items:center;gap:14px}
@@ -45,24 +43,20 @@ header::after{content:'';position:absolute;left:0;right:0;bottom:-4px;height:1px
 .btn-ghost{background:none;border:1px solid var(--line);color:var(--muted);font-size:10px;letter-spacing:.22em;font-weight:500;padding:8px 16px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:.15s}
 .btn-ghost:hover{border-color:var(--brass-dim);color:var(--brass-hi)}
 
-/* ============ kerangka utama ============ */
 main{display:grid;grid-template-columns:346px minmax(0,1fr);min-height:calc(100vh - 64px)}
 aside{border-right:1px solid var(--line);padding:20px 22px 30px;overflow-y:auto;position:sticky;top:0;max-height:calc(100vh - 64px)}
 .stage{display:flex;flex-direction:column;padding:20px 26px 16px;min-width:0;user-select:none}
 
-/* ============ panel kontrol ============ */
 section{margin-bottom:26px}
 .sec-head{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--line2);padding-bottom:8px;margin-bottom:14px}
 .sec-num{font-family:var(--f-m);color:var(--brass);font-size:10px}
 .sec-title{font-size:11px;letter-spacing:.28em;font-weight:500;color:var(--ink)}
 .sec-hint{font-size:9px;color:var(--faint);letter-spacing:.06em;margin:-6px 0 12px;line-height:1.6}
 
-/* toggle AUTO / MANUAL pada kepala seksi 03 */
 .mini-seg{display:flex;margin-left:auto;border:1px solid var(--line);align-self:center}
 .mini-seg button{background:none;border:0;color:var(--muted);font-size:9px;letter-spacing:.16em;font-weight:500;padding:4px 11px;cursor:pointer;transition:.15s}
 .mini-seg button.on{background:var(--brass);color:#161307;font-weight:600}
 
-/* dropzone — sudut art deco via 8 gradien */
 .drop{position:relative;border:1px dashed #2c2c22;background-color:var(--bg2);padding:24px 14px;text-align:center;cursor:pointer;transition:border-color .2s,background-color .2s;
   background-image:
    linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim)),
@@ -89,8 +83,8 @@ select:focus{outline:none;border-color:var(--brass-dim)}
 .btn-mini:hover{border-color:var(--brass-dim);color:var(--brass-hi)}
 .btn-mini:disabled{opacity:.35;pointer-events:none}
 
-/* slider — ibarat berlian kuningan */
 .ctl{margin-bottom:15px}
+.ctl.off{opacity:.35;pointer-events:none}
 .ctl-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1px}
 .ctl-top label{font-size:10px;letter-spacing:.20em;color:var(--muted);font-weight:500}
 .ctl-top output{font-family:var(--f-m);font-size:10.5px;color:var(--brass);font-variant-numeric:tabular-nums}
@@ -112,11 +106,11 @@ input[type=range]::-moz-range-thumb{width:11px;height:11px;background:var(--bras
 input[type=number]{width:82px;background:var(--bg2);border:1px solid var(--line);color:var(--brass);font-family:var(--f-m);font-size:11px;padding:7px 9px;text-align:right}
 input[type=number]:focus{outline:none;border-color:var(--brass-dim)}
 .numrow .unit{font-family:var(--f-m);font-size:9px;color:var(--faint)}
-.chk{display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:16px}
+.chk{display:flex;align-items:center;gap:10px;cursor:pointer;margin:12px 0 0}
 .chk input{display:none}
 .chk .box{width:13px;height:13px;border:1px solid var(--line);flex:none;transition:.15s;position:relative}
 .chk input:checked + .box{background:var(--brass);border-color:var(--brass)}
-.chk .lbl{font-size:10px;letter-spacing:.20em;color:var(--muted);font-weight:500}
+.chk .lbl{font-size:10px;letter-spacing:.20em;color:var(--muted);font-weight:500;line-height:1.5}
 
 .btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:12px 0;font-size:11px;letter-spacing:.24em;font-weight:500;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink);transition:.15s}
 .btn:hover{border-color:var(--brass-dim);color:var(--brass-hi)}
@@ -125,7 +119,6 @@ input[type=number]:focus{outline:none;border-color:var(--brass-dim)}
 .btn:disabled{opacity:.3;pointer-events:none}
 .btn + .btn{margin-top:9px}
 
-/* ============ panggung ============ */
 .tabs{display:flex;gap:26px;border-bottom:1px solid var(--line);padding-left:4px}
 .tabs button{background:none;border:0;color:var(--muted);font-size:11px;letter-spacing:.26em;font-weight:500;padding:10px 2px 12px;cursor:pointer;position:relative;transition:color .15s}
 .tabs button:hover{color:var(--ink)}
@@ -151,7 +144,7 @@ input[type=number]:focus{outline:none;border-color:var(--brass-dim)}
 #empty p{font-family:var(--f-m);font-size:9px;letter-spacing:.2em;color:var(--faint);text-align:center;line-height:2}
 @keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
 
-#proc{position:absolute;inset:0;background:rgba(7,7,6,.85);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:6}
+#proc{position:absolute;inset:0;background:rgba(7,7,6,.88);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:6}
 #proc.on{display:flex}
 #proc .sun{width:48px;height:34px;color:var(--brass);animation:rot 4s linear infinite}
 @keyframes rot{to{transform:rotate(360deg)}}
@@ -168,7 +161,6 @@ input[type=number]:focus{outline:none;border-color:var(--brass-dim)}
 #log .k{color:var(--brass)}
 #log .e{color:var(--err)}
 
-/* ============ modal protokol ============ */
 #modal{position:fixed;inset:0;background:rgba(5,5,4,.82);display:none;align-items:center;justify-content:center;z-index:50;padding:28px}
 #modal.on{display:flex}
 .doc{max-width:840px;width:100%;max-height:88vh;display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--line);position:relative;
@@ -193,7 +185,6 @@ input[type=number]:focus{outline:none;border-color:var(--brass-dim)}
 .doc-body li::before{content:'';position:absolute;left:2px;top:.72em;width:7px;height:7px;transform:rotate(45deg);border:1px solid var(--brass-dim)}
 .doc-foot{display:flex;gap:10px;padding:16px 26px;border-top:1px solid var(--line2)}
 
-/* ============ toast & footer ============ */
 #toasts{position:fixed;right:22px;bottom:22px;z-index:60;display:flex;flex-direction:column;gap:8px}
 .toast{background:#15130b;border:1px solid var(--brass-dim);border-left:3px solid var(--brass);padding:11px 18px;font-size:11px;letter-spacing:.12em;color:var(--ink);max-width:340px;animation:tin .25s ease}
 .toast.out{opacity:0;transition:opacity .4s}
@@ -224,12 +215,11 @@ footer{border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-c
     </div>
   </div>
   <div class="hspace"></div>
-  <span class="hchip" id="modelsChip"><span class="dot"></span><span id="modelsTxt">MODEL — MENUNGGU</span></span>
+  <span class="hchip" id="modelsChip"><span class="dot"></span><span id="modelsTxt">MESIN — MENUNGGU</span></span>
   <button class="btn-ghost" id="btn-protocol"><i data-lucide="info"></i>PROTOKOL</button>
 </header>
 
 <main>
-  <!-- ============ rel kontrol ============ -->
   <aside>
 
     <section>
@@ -241,17 +231,23 @@ footer{border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-c
           <line x1="49.3" y1="32" x2="54.5" y2="29"/><line x1="14.7" y1="32" x2="9.5" y2="29"/>
           <line x1="0" y1="42" x2="64" y2="42"/>
         </svg>
-        <div class="drop-title">JATUHKAN FOTO PORTRAIT</div>
-        <div class="drop-sub">klik untuk memilih · tarik-lepas · tempel (Ctrl+V)<br>foto diproses sepenuhnya secara lokal</div>
+        <div class="drop-title">JATUHKAN FOTO ATAU OBJEK</div>
+        <div class="drop-sub">jpg · png · webp · bmp · gif · avif<br>klik · tarik-lepas · tempel (Ctrl+V)</div>
         <div id="fileMeta"></div>
       </div>
-      <input type="file" id="fileInput" accept="image/*" hidden>
+      <input type="file" id="fileInput" accept="image/*,.jpg,.jpeg,.png,.webp,.bmp,.gif,.avif" hidden>
     </section>
 
     <section>
-      <div class="sec-head"><span class="sec-num">02</span><span class="sec-title">ANALISIS</span></div>
+      <div class="sec-head"><span class="sec-num">02</span><span class="sec-title">MESIN KEDALAMAN</span></div>
+      <div class="prow"><span>KEDALAMAN NEURAL</span><span class="pstate" id="chip-neural">—</span></div>
       <div class="prow"><span>SEGMENTASI SUBJEK</span><span class="pstate" id="chip-seg">—</span></div>
-      <div class="prow"><span>LANDMARK WAJAH</span><span class="pstate" id="chip-lm">—</span></div>
+      <div class="prow"><span>LANDMARK WAJAH (KLASIK)</span><span class="pstate" id="chip-lm">—</span></div>
+      <label class="chk">
+        <input type="checkbox" id="c-neural" checked><span class="box"></span>
+        <span class="lbl">ESTIMASI NEURAL — OBJEK APA PUN</span>
+      </label>
+      <div class="sec-hint">Depth Anything V2 (±25 MB, diunduh sekali lalu tersimpan di cache peramban). Matikan untuk mode klasik (khusus wajah manusia, lebih ringan).</div>
       <div class="row-tools">
         <select id="resSel" title="resolusi kerja">
           <option value="512">RESOLUSI 512</option>
@@ -279,7 +275,7 @@ footer{border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-c
       <div class="ctl">
         <div class="ctl-top"><label for="c-tension">KONTRAS PAHATAN</label><output></output></div>
         <input type="range" id="c-tension" min="0" max="1" step="0.01" value="0.45">
-        <div class="hint">kurva-S pemisah landmark / struktur</div>
+        <div class="hint">kurva-S pemisah struktur kedalaman</div>
       </div>
       <div class="ctl">
         <div class="ctl-top"><label for="c-rampW">RAMP KEMUNCULAN</label><output></output></div>
@@ -290,14 +286,15 @@ footer{border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-c
         <div class="ctl-top"><label for="c-fillet">FILET PERMUKAAN</label><output></output></div>
         <input type="range" id="c-fillet" min="0" max="14" step="1" value="5">
       </div>
-      <div class="ctl">
+      <div class="ctl" id="ctl-hairL">
         <div class="ctl-top"><label for="c-hairL">ELEVASI MASSA (RAMBUT/BADAN)</label><output></output></div>
         <input type="range" id="c-hairL" min="0.10" max="0.60" step="0.01" value="0.34">
+        <div class="hint">hanya digunakan pada mode klasik (non-neural)</div>
       </div>
       <div class="ctl">
         <div class="ctl-top"><label for="c-detW">DETAIL MIKRO</label><output></output></div>
         <input type="range" id="c-detW" min="0" max="1" step="0.01" value="0.30">
-        <div class="hint">relief halus fitur &amp; permukaan dari bayangan asli</div>
+        <div class="hint">pertegas relief halus dari struktur kedalaman</div>
       </div>
     </section>
 
@@ -326,7 +323,6 @@ footer{border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-c
 
   </aside>
 
-  <!-- ============ panggung ============ -->
   <div class="stage">
     <nav class="tabs">
       <button data-view="depth" class="on">DEPTH MAP</button>
@@ -343,7 +339,7 @@ footer{border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-c
           <line x1="0" y1="42" x2="64" y2="42"/>
         </svg>
         <h2>MENUNGGU SUBJEK</h2>
-        <p>SEMUA KOMPUTASI DI PERAMBAN<br>TIDAK ADA GAMBAR YANG DIKIRIM KE SERVER</p>
+        <p>FOTO ATAU OBJEK · JPG PNG WEBP BMP GIF AVIF<br>SEMUA KOMPUTASI DI PERAMBAN</p>
       </div>
 
       <div class="view on" data-view="depth"><canvas id="cv-depth"></canvas></div>
@@ -372,7 +368,6 @@ footer{border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-c
   </div>
 </main>
 
-<!-- ============ modal protokol ============ -->
 <div id="modal">
   <div class="doc">
     <div class="doc-head">
@@ -395,33 +390,33 @@ footer{border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-c
 <div id="toasts"></div>
 
 <footer>
-  <span>BASRELIEF — SEGMENTASI + 468 LANDMARK → RELIEF ANATOMIS · SEPENUHNYA LOKAL</span>
+  <span>BASRELIEF v2.0 — DEPTH ANYTHING V2 + PROTOKOL PEMAHATAN · SEPENUHNYA LOKAL</span>
   <span>PNG GRAYSCALE 16-BIT · VECTRIC ASPIRE / ARTCAM</span>
 </footer>
 
 <script>
 'use strict';
 /* ================================================================
-   BASRELIEF — generator depth map bas-relief untuk CNC
-   Pipeline: segmentasi subjek → landmark wajah → prior anatomis
-   → ramp S-curve → fillet → kurva Z → ekspor PNG 16-bit.
-   v1.1 — mode AUTO pada seksi PEMAHATAN + mode bayangan diperkuat
-   untuk subjek non-wajah (objek, makhluk, scene).
+   BASRELIEF v2.0 — generator depth map untuk CNC
+   BARU: estimasi kedalaman NEURAL (Depth Anything V2, transformers.js,
+   berjalan lokal via WebGPU/WASM) → mendukung objek APA PUN.
+   Post-processing protokol tetap: ramp S-curve, fillet, kurva Z,
+   latar hitam murni, ekspor PNG 16-bit untuk Vectric Aspire.
+   Jika model neural gagal → otomatis mundur ke mode klasik
+   (MediaPipe: segmentasi selfie + 468 landmark wajah).
    ================================================================ */
 
-/* ---------- utilitas dasar ---------- */
 const $  = (s,el=document)=>el.querySelector(s);
 const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const lerp=(a,b,t)=>a+(b-a)*t;
-const ss=t=>{t=clamp(t,0,1);return t*t*t*(t*(t*6-15)+10);}; // smootherstep (kurva-S C2)
+const ss=t=>{t=clamp(t,0,1);return t*t*t*(t*(t*6-15)+10);};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const mkCanvas=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;};
 
 let SCR=null;
 const getScr=n=>{if(!SCR||SCR.length<n)SCR=new Float32Array(n);return SCR;};
 
-/* blur kotak separabel — 3 tapisan ≈ gauss, O(n) per tapis */
 function boxH(src,dst,w,h,r){
   const inv=1/(2*r+1);
   for(let y=0;y<h;y++){
@@ -451,7 +446,6 @@ function blur(f,w,h,r,passes=3){
   return f;
 }
 
-/* transformasi jarak chamfer 3-4 — untuk ramp kemunculan */
 function distField(bin,w,h){
   const n=w*h,d=new Float32Array(n);
   for(let i=0;i<n;i++)d[i]=bin[i]?1e9:0;
@@ -477,7 +471,6 @@ function distField(bin,w,h){
   return d;
 }
 
-/* isi lubang segmen: flood-fill latar dari tepi kanvas */
 function fillHoles(bin,w,h){
   const n=w*h,seen=new Uint8Array(n),q=new Int32Array(n);let qh=0,qt=0;
   const push=i=>{if(!bin[i]&&!seen[i]){seen[i]=1;q[qt++]=i;}};
@@ -490,7 +483,6 @@ function fillHoles(bin,w,h){
   for(let i=0;i<n;i++)if(!bin[i]&&!seen[i])bin[i]=1;
 }
 
-/* rasterisasi poligon (oval wajah) — scanline even-odd */
 function fillPoly(poly,w,h){
   const m=new Uint8Array(w*h),xs=[];
   let y0=1e9,y1=-1e9;
@@ -512,7 +504,6 @@ function fillPoly(poly,w,h){
   return m;
 }
 
-/* splat gauss aditif — membangun bukit volumetrik */
 function splat(f,w,h,cx,cy,amp,sig){
   const r=Math.max(2,Math.ceil(sig*3)),s2=2*sig*sig;
   const x0=Math.max(0,Math.floor(cx-r)),x1=Math.min(w-1,Math.ceil(cx+r));
@@ -523,7 +514,7 @@ function splat(f,w,h,cx,cy,amp,sig){
   }
 }
 
-/* ---------- encoder PNG grayscale 16-bit (presisi untuk Aspire) ---------- */
+/* ---------- encoder PNG grayscale 16-bit ---------- */
 const CRC_T=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c;}return t;})();
 function crc32(u8){let c=~0;for(let i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&255]^(c>>>8);return(~c)>>>0;}
 function pngChunk(type,data){
@@ -538,10 +529,10 @@ function encodeGrayPNG16(w,h,gray16){
   const sig=Uint8Array.of(137,80,78,71,13,10,26,10);
   const ihdr=new Uint8Array(13),dv=new DataView(ihdr.buffer);
   dv.setUint32(0,w);dv.setUint32(4,h);
-  ihdr[8]=16;ihdr[9]=0;ihdr[10]=0;ihdr[11]=0;ihdr[12]=0; // bitDepth 16, grayscale
+  ihdr[8]=16;ihdr[9]=0;ihdr[10]=0;ihdr[11]=0;ihdr[12]=0;
   const stride=w*2,raw=new Uint8Array((stride+1)*h);
   for(let y=0;y<h;y++){
-    const o=y*(stride+1);raw[o]=0; // filter 0
+    const o=y*(stride+1);raw[o]=0;
     for(let x=0;x<w;x++){
       const v=gray16[y*w+x];
       raw[o+1+x*2]=(v>>>8)&255;raw[o+2+x*2]=v&255;
@@ -562,13 +553,136 @@ function log(html){
 function toast(msg){
   const t=document.createElement('div');t.className='toast';t.textContent=msg;
   $('#toasts').appendChild(t);
-  setTimeout(()=>t.classList.add('out'),2900);setTimeout(()=>t.remove(),3400);
+  setTimeout(()=>t.classList.add('out'),3600);setTimeout(()=>t.remove(),4200);
 }
 function setChip(id,txt,cls){const e=$('#chip-'+id);e.textContent=txt;e.className='pstate '+(cls||'');}
+function setNeuralChip(txt,cls){setChip('neural',txt,cls);}
 function setModels(txt,cls){$('#modelsTxt').textContent=txt;$('#modelsChip').className='hchip '+(cls||'');}
 function setProc(s){$('#procLabel').textContent=s;}
+/* label proses dengan penghitung detik — agar proses panjang tidak terlihat macet */
+function procTimer(label){
+  const t0=performance.now();
+  const id=setInterval(()=>{
+    setProc(`${label} ${((performance.now()-t0)/1000).toFixed(0)}s`);
+  },500);
+  return ()=>clearInterval(id);
+}
 
-/* ---------- MediaPipe: dimuat malas dari CDN, eksekusi lokal (WASM) ---------- */
+/* ================================================================
+   MESIN NEURAL — Depth Anything V2 (kecil) via Transformers.js.
+   Dimuat dari CDN, dieksekusi 100% lokal (WebGPU bila tersedia,
+   jika tidak WASM). Tanpa kunci API, tanpa server.
+   ================================================================ */
+const HF_TRIES=[
+  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.1',
+  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.1/dist/transformers.min.js',
+  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3',
+  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.min.js'
+];
+let hfLib=null,depthPipe=null,neuralCfg=null,hfState='idle',hfPromise=null;
+
+async function ensureNeural(){
+  if(hfState==='ready')return true;
+  if(hfState==='loading')return await hfPromise;
+  if(hfState==='failed')return false;
+  hfState='loading';setNeuralChip('MEMUAT','warn');setModels('MESIN — MEMUAT','warn');
+  log('NEURAL — memuat <span class="k">Depth Anything V2</span> (transformers.js · eksekusi lokal)');
+  hfPromise=(async()=>{
+    try{
+      setProc('MEMUAT PUSTAKA NEURAL…');
+      let lib=null;
+      for(const u of HF_TRIES){try{lib=await import(u);break;}catch(e){}}
+      if(!lib)throw new Error('lib');
+      hfLib=lib;
+      /* rantai konfigurasi: webgpu(fp16) → wasm(q8) → fp16 → default */
+      const chain=(navigator.gpu&&navigator.gpu.requestAdapter)
+        ?[{device:'webgpu',dtype:'fp16'},{dtype:'q8'},{dtype:'fp16'},{}]
+        :[{dtype:'q8'},{dtype:'fp16'},{}];
+      let ok=false;
+      for(const cfg of chain){
+        try{
+          depthPipe=await hfLib.pipeline('depth-estimation','onnx-community/depth-anything-v2-small',
+            Object.assign({},cfg,{progress_callback:d=>{
+              if(d&&d.status==='progress'&&d.total){
+                const pct=Math.round(d.loaded/d.total*100);
+                setProc(`MEMUAT MODEL NEURAL ${pct}%`);
+                setNeuralChip(`MEMUAT ${pct}%`,'warn');
+              }
+            }}));
+          neuralCfg=cfg;ok=true;break;
+        }catch(e){}
+      }
+      if(!ok)throw new Error('model');
+      hfState='ready';setNeuralChip('AKTIF · DA-V2','ok');setModels('MESIN — NEURAL','ok');
+      log(`NEURAL — <span class="k">siap</span> · backend ${neuralCfg.device==='webgpu'?'webgpu':'wasm'} · objek apa pun terdukung`);
+      return true;
+    }catch(e){
+      hfState='failed';setNeuralChip('GAGAL → KLASIK','fail');setModels('MESIN — KLASIK','warn');
+      log('NEURAL — <span class="e">gagal dimuat</span>, beralih ke mode klasik');
+      toast('Model neural gagal dimuat — mode klasik aktif');
+      return false;
+    }
+  })();
+  return await hfPromise;
+}
+
+async function runNeuralDepth(an){
+  const {w,h}=an;
+  const t0=performance.now();
+  const stopT=procTimer('ESTIMASI KEDALAMAN…');
+  const infer=async()=>{
+    const blob=await new Promise(r=>an.orig.toBlob(r,'image/png'));
+    const url=URL.createObjectURL(blob);
+    try{return await depthPipe(url);}finally{URL.revokeObjectURL(url);}
+  };
+  let out=null;
+  try{out=await infer();}
+  catch(e){
+    if(neuralCfg&&neuralCfg.device==='webgpu'){
+      log('NEURAL — webgpu gagal saat inferensi, mencoba ulang via wasm…');
+      try{
+        depthPipe=await hfLib.pipeline('depth-estimation','onnx-community/depth-anything-v2-small',{dtype:'q8'});
+        neuralCfg={dtype:'q8'};
+        out=await infer();
+      }catch(e2){out=null;}
+    }
+  }
+  stopT();
+  if(!out){log('NEURAL — <span class="e">inferensi gagal</span>');return false;}
+  if(Array.isArray(out))out=out[0];
+  const img=out.depth;
+  if(!img||!img.data||!img.width)return false;
+  const d=img.data,iw=img.width,ih=img.height,n=w*h;
+  const stride=d.length/(iw*ih)||1;
+  const f=new Float32Array(n);
+  const sx=iw/w,sy=ih/h;
+  for(let y=0;y<h;y++){
+    const yy=Math.min(ih-1,Math.round(y*sy));
+    for(let x=0;x<w;x++){
+      const xx=Math.min(iw-1,Math.round(x*sx));
+      f[y*w+x]=d[(yy*iw+xx)*stride]/255;
+    }
+  }
+  /* jaga-jaga orientasi: sebagian model memakai "jauh = terang" */
+  const med=a=>{const b=Float32Array.from(a);b.sort();return b[b.length>>1]||0;};
+  const border=[],center=[];
+  const em=Math.min(w,h)*0.06;
+  for(let i=0;i<n;i+=13){
+    const x=i%w,y=(i/w)|0;
+    (Math.min(x,y,w-1-x,h-1-y)<em?border:center).push(f[i]);
+  }
+  if(border.length>10&&center.length>10&&med(border)>med(center)*1.2+0.05){
+    for(let i=0;i<n;i++)f[i]=1-f[i];
+    log('NEURAL — orientasi kedalaman <span class="k">dikoreksi</span> (jauh↔dekat)');
+  }
+  an.neural=f;an.mode='neural';
+  log(`NEURAL — estimasi selesai dalam <span class="k">${((performance.now()-t0)/1000).toFixed(1)} s</span>`);
+  return true;
+}
+
+/* ================================================================
+   MediaPipe (mode klasik — wajah manusia)
+   ================================================================ */
 const MP_MESH='https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619';
 const MP_SEG ='https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747';
 let segPipe=null,meshPipe=null,mpState='idle',mpPromise=null;
@@ -585,8 +699,8 @@ function loadScript(src,timeout=25000){
 async function ensureModels(){
   if(mpState==='ready')return true;
   if(mpState==='loading')return await mpPromise;
-  mpState='loading';setModels('MODEL — MEMUAT','warn');
-  log('MODEL — memuat <span class="k">mediapipe wasm</span> dari CDN…');
+  mpState='loading';setModels('MESIN — MEMUAT','warn');
+  log('KLASIK — memuat <span class="k">mediapipe wasm</span>…');
   mpPromise=(async()=>{
     try{
       await loadScript(MP_SEG+'/selfie_segmentation.js');
@@ -597,13 +711,12 @@ async function ensureModels(){
       meshPipe=new FaceMesh({locateFile:f=>`${MP_MESH}/${f}`});
       meshPipe.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:0.35,minTrackingConfidence:0.35});
       try{await meshPipe.initialize();}catch(e){}
-      mpState='ready';setModels('MODEL — SIAP','ok');
-      log('MODEL — <span class="k">siap</span> · analisis berjalan sepenuhnya di peramban');
+      mpState='ready';setModels('MESIN — KLASIK','ok');
+      log('KLASIK — <span class="k">mediapipe siap</span>');
       return true;
     }catch(e){
-      mpState='failed';setModels('MODEL — OFFLINE','warn');
-      log('MODEL — <span class="e">gagal dimuat</span>, beralih ke mode bayangan');
-      toast('Model analisis gagal dimuat — mode bayangan aktif');
+      mpState='failed';setModels('MESIN — OFFLINE','warn');
+      log('KLASIK — <span class="e">gagal dimuat</span>, mode bayangan');
       return false;
     }
   })();
@@ -625,21 +738,20 @@ function mpSend(pipe,canvas){
   });
 }
 
-/* ---------- konstanta landmark (mesh wajah kanonik) ---------- */
+/* ---------- konstanta landmark (mode klasik) ---------- */
 const OVAL_IDX=[10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109];
-/* hierarki kedalaman sesuai protokol: hidung paling tinggi → … → rahang rendah */
 const GROUPS=[
- {idx:[1,4,19,94],                                   w:1.00, s:0.075}, // ujung hidung — puncak
- {idx:[168,6,197,195,5],                             w:0.86, s:0.070}, // batang hidung
- {idx:[98,327,102,331,64,294,219,439],               w:0.66, s:0.052}, // cuping hidung
- {idx:[9,168,107,336,55,285,105,334,46,276,70,300,63,293,66,296,53,283,52,282], w:0.80, s:0.070}, // tulang alis
- {idx:[10,151,109,338,67,297,103,332],               w:0.74, s:0.280}, // kubah dahi — lebar & membulat
- {idx:[50,280,205,425,234,454,93,323,116,345],       w:0.60, s:0.120}, // tulang pipi
- {idx:[159,145,386,374,33,133,362,263],              w:0.46, s:0.050}, // rongga mata — agak cekung
- {idx:[61,291,0,17,13,14,82,312,37,267,84,314],      w:0.58, s:0.058}, // bibir
- {idx:[164],                                         w:0.62, s:0.035}, // philtrum
- {idx:[152,175,199,18,148,377],                      w:0.52, s:0.085}, // dagu
- {idx:[172,136,150,149,176,400,378,379,365,397,288,361,323,356,389,251,284,332,297,338,58,132], w:0.34, s:0.080}, // garis rahang
+ {idx:[1,4,19,94],                                   w:1.00, s:0.075},
+ {idx:[168,6,197,195,5],                             w:0.86, s:0.070},
+ {idx:[98,327,102,331,64,294,219,439],               w:0.66, s:0.052},
+ {idx:[9,168,107,336,55,285,105,334,46,276,70,300,63,293,66,296,53,283,52,282], w:0.80, s:0.070},
+ {idx:[10,151,109,338,67,297,103,332],               w:0.74, s:0.280},
+ {idx:[50,280,205,425,234,454,93,323,116,345],       w:0.60, s:0.120},
+ {idx:[159,145,386,374,33,133,362,263],              w:0.46, s:0.050},
+ {idx:[61,291,0,17,13,14,82,312,37,267,84,314],      w:0.58, s:0.058},
+ {idx:[164],                                         w:0.62, s:0.035},
+ {idx:[152,175,199,18,148,377],                      w:0.52, s:0.085},
+ {idx:[172,136,150,149,176,400,378,379,365,397,288,361,323,356,389,251,284,332,297,338,58,132], w:0.34, s:0.080},
 ];
 const IRIS=[468,473];
 
@@ -647,7 +759,7 @@ const IRIS=[468,473];
 let srcImg=null,srcName='',A=null,D=null,P=null;
 let view='depth',analyzing=false,running=false;
 let az=-60,elev=32,mat='brass',reliefDirty=true,sweepId=0;
-let autoMode=true; /* v1.1: parameter pemahatan otomatis */
+let autoMode=true;
 let cmpX=0.5,cmpDrag=false,relDrag=false,lastPX=0,lastPY=0,reliefRAF=0,synthTimer=0;
 
 const depthCanvas=$('#cv-depth'),dctx=depthCanvas.getContext('2d');
@@ -659,7 +771,7 @@ const MATS={
 };
 
 /* ================================================================
-   TAHAP A — ANALISIS (asinkron, di-cache; tidak bergantung slider)
+   TAHAP A — ANALISIS
    ================================================================ */
 async function runAnalysis(){
   if(!srcImg||running)return;
@@ -682,75 +794,127 @@ async function runAnalysis(){
 
   log(`SUMBER — <span class="k">${esc(srcName)}</span> ${iw}×${ih} → kerja ${w}×${h}`);
 
-  const an={w,h,n,orig,lum,face:false,lms:null};
-  setProc('MEMUAT MODEL…');
-  const ok=await ensureModels();
+  const an={w,h,n,orig,lum,mode:'klasik',face:false,lms:null};
 
-  /* --- segmentasi subjek --- */
-  setProc('SEGMENTASI SUBJEK…');
-  let segOK=false;
-  if(ok){
-    const r=await mpSend(segPipe,orig);
-    if(r&&r.segmentationMask){
-      const mc=mkCanvas(w,h),mx=mc.getContext('2d',{willReadFrequently:true});
-      mx.drawImage(r.segmentationMask,0,0,w,h);
-      const md=mx.getImageData(0,0,w,h).data;
-      const m=new Float32Array(n);let s=0;
-      for(let i=0;i<n;i++){const v=(md[i*4]/255)*(md[i*4+3]/255);m[i]=v;s+=v;}
-      const mean=s/n;
-      if(mean>0.02&&mean<0.985){
-        blur(m,w,h,2,2);
-        const bin=new Uint8Array(n);
-        for(let i=0;i<n;i++)bin[i]=m[i]>0.45?1:0;
-        fillHoles(bin,w,h);
-        const bf=new Float32Array(n);
-        for(let i=0;i<n;i++)bf[i]=bin[i];
-        blur(bf,w,h,2,2);
-        let cnt=0;
-        for(let i=0;i<n;i++){bin[i]=bf[i]>0.5?1:0;cnt+=bin[i];}
-        an.bin=bin;an.area=cnt/n;segOK=an.area>0.002;
-        if(segOK)log(`SEGMENTASI — subjek <span class="k">${(an.area*100).toFixed(1)}%</span> bingkai`);
+  /* --- 1) estimasi kedalaman neural (objek apa pun) --- */
+  let neuralOK=false;
+  if($('#c-neural').checked){
+    if(hfState==='failed'){hfState='idle';hfPromise=null;}
+    const libOK=await ensureNeural();
+    if(libOK)neuralOK=await runNeuralDepth(an);
+    if(!neuralOK)setNeuralChip('GAGAL → KLASIK','fail');
+  }else setNeuralChip('NONAKTIF','');
+
+  if(neuralOK){
+    /* --- 2a) segmentasi berbasis kedalaman --- */
+    setProc('SEGMENTASI SUBJEK…');
+    const segOK=depthSeg(an);
+    if(!segOK){
+      fallbackSeg(an);
+      if(an.area<0.002){an.bin.fill(1);an.area=1;}
+      log('SEGMENTASI — berbasis <span class="e">luminance</span> (kedalaman kurang kontras)');
+    }else{
+      log(`SEGMENTASI — subjek <span class="k">${(an.area*100).toFixed(1)}%</span> bingkai (berbasis kedalaman)`);
+    }
+    setChip('seg',an.area>0.985?'MEMENUHI BINGKAI':`SUBJEK ${Math.round(an.area*100)}%`,'ok');
+    setChip('lm','MODE NEURAL','ok');
+  }else{
+    /* --- 2b) jalur klasik: mediapipe --- */
+    setProc('MEMUAT MODEL KLASIK…');
+    const ok=await ensureModels();
+    setProc('SEGMENTASI SUBJEK…');
+    let segOK=false;
+    if(ok){
+      const r=await mpSend(segPipe,orig);
+      if(r&&r.segmentationMask){
+        const mc=mkCanvas(w,h),mx=mc.getContext('2d',{willReadFrequently:true});
+        mx.drawImage(r.segmentationMask,0,0,w,h);
+        const md=mx.getImageData(0,0,w,h).data;
+        const m=new Float32Array(n);let s=0;
+        for(let i=0;i<n;i++){const v=(md[i*4]/255)*(md[i*4+3]/255);m[i]=v;s+=v;}
+        const mean=s/n;
+        if(mean>0.02&&mean<0.985){
+          blur(m,w,h,2,2);
+          const bin=new Uint8Array(n);
+          for(let i=0;i<n;i++)bin[i]=m[i]>0.45?1:0;
+          fillHoles(bin,w,h);
+          const bf=new Float32Array(n);
+          for(let i=0;i<n;i++)bf[i]=bin[i];
+          blur(bf,w,h,2,2);
+          let cnt=0;
+          for(let i=0;i<n;i++){bin[i]=bf[i]>0.5?1:0;cnt+=bin[i];}
+          an.bin=bin;an.area=cnt/n;segOK=an.area>0.002;
+          if(segOK)log(`SEGMENTASI — subjek <span class="k">${(an.area*100).toFixed(1)}%</span> bingkai`);
+        }
       }
     }
+    if(!segOK){
+      fallbackSeg(an);
+      if(an.area<0.002){an.bin.fill(1);an.area=1;}
+      log('SEGMENTASI — <span class="e">tidak tersedia</span>, mode siluet');
+    }
+    setChip('seg',segOK?`SUBJEK ${Math.round(an.area*100)}%`:'MODE SILUET',segOK?'ok':'fail');
+
+    /* landmark wajah hanya relevan di jalur klasik */
+    setProc('LANDMARK WAJAH…');
+    let faceOK=false;
+    if(ok){
+      const r=await mpSend(meshPipe,orig);
+      if(r&&r.multiFaceLandmarks&&r.multiFaceLandmarks.length){
+        an.lms=r.multiFaceLandmarks[0];an.face=true;faceOK=true;
+      }
+    }
+    if(faceOK){
+      buildFaceFields(an);
+      log(`LANDMARK — <span class="k">${an.lms.length} titik</span> · hierarki anatomis dibangun`);
+    }else{
+      setChip('lm','TIDAK TERDETEKSI','fail');
+      log('LANDMARK — <span class="e">wajah tidak terdeteksi</span>, relief berbasis bayangan');
+    }
   }
-  if(!segOK){
-    fallbackSeg(an);
-    if(an.area<0.002){an.bin.fill(1);an.area=1;}
-    log('SEGMENTASI — <span class="e">tidak tersedia</span>, mode siluet');
-  }
-  setChip('seg',segOK?`SUBJEK ${(an.area*100).toFixed(0)}%`:'MODE SILUET',segOK?'ok':'fail');
 
   an.maskSoft=new Float32Array(n);
   for(let i=0;i<n;i++)an.maskSoft[i]=an.bin[i];
   blur(an.maskSoft,w,h,2,2);
 
-  /* --- landmark wajah --- */
-  setProc('LANDMARK WAJAH…');
-  let faceOK=false;
-  if(ok){
-    const r=await mpSend(meshPipe,orig);
-    if(r&&r.multiFaceLandmarks&&r.multiFaceLandmarks.length){
-      an.lms=r.multiFaceLandmarks[0];an.face=true;faceOK=true;
-    }
-  }
-  if(faceOK){
-    buildFaceFields(an);
-    log(`LANDMARK — <span class="k">${an.lms.length} titik</span> · hierarki anatomis dibangun`);
-  }else{
-    setChip('lm','TIDAK TERDETEKSI','fail');
-    log('LANDMARK — <span class="e">wajah tidak terdeteksi</span>, relief berbasis bayangan');
-  }
-
+  /* --- 3) bidang dasar & detail --- */
   setProc('MEMBANGUN RELIEF…');
   an.dist=distField(an.bin,w,h);
   buildDetail(an);
-  if(!an.face)buildFallbackBase(an);
+  if(an.mode==='neural')buildNeuralBase(an);
+  else if(!an.face)buildFallbackBase(an);
+
   an.time=performance.now()-t0;
   A=an;
-
+  syncCtlAvailability();
   $('#proc').classList.remove('on');
   $('#btn-rerun').disabled=false;
   analyzing=false;running=false;
+}
+
+/* segmentasi dari peta kedalaman: latar = kedalaman tepi kanvas */
+function depthSeg(an){
+  const {w,h,n,neural}=an;
+  const border=[];
+  for(let x=0;x<w;x+=4){border.push(neural[x],neural[(h-1)*w+x]);}
+  for(let y=0;y<h;y+=4){border.push(neural[y*w],neural[y*w+w-1]);}
+  border.sort((a,b)=>a-b);
+  const bg=border[border.length>>1];
+  const vals=[];
+  for(let i=0;i<n;i+=7)vals.push(neural[i]);
+  vals.sort((a,b)=>a-b);
+  const hi=vals[Math.floor(vals.length*0.90)];
+  const thr=bg+0.30*Math.max(0.05,hi-bg);
+  const bin=new Uint8Array(n);let cnt=0;
+  for(let i=0;i<n;i++){bin[i]=neural[i]>thr?1:0;cnt+=bin[i];}
+  fillHoles(bin,w,h);
+  const bf=new Float32Array(n);
+  for(let i=0;i<n;i++)bf[i]=bin[i];
+  blur(bf,w,h,2,2);
+  cnt=0;
+  for(let i=0;i<n;i++){bin[i]=bf[i]>0.5?1:0;cnt+=bin[i];}
+  an.bin=bin;an.area=cnt/n;
+  return an.area>0.02;
 }
 
 function fallbackSeg(an){
@@ -779,16 +943,12 @@ function buildFaceFields(an){
   const pt=i=>[lms[i].x*w,lms[i].y*h];
   const fw=Math.hypot(lms[234].x-lms[454].x,lms[234].y-lms[454].y)*w;
   an.faceW=Math.max(24,fw);
-
-  /* oval wajah — dibatasi bulu halus agar transisi wajah↔rambut panjang & membulat */
   const poly=OVAL_IDX.map(pt);
   const ovalHard=fillPoly(poly,w,h);
   const oval=new Float32Array(n);
   for(let i=0;i<n;i++)oval[i]=ovalHard[i];
   blur(oval,w,h,Math.max(3,an.faceW*0.10));
   an.oval=oval;
-
-  /* prior anatomis: splat bertingkat sesuai hierarki kedalaman protokol */
   const prior=new Float32Array(n);
   for(const g of GROUPS){
     const sig=g.s*an.faceW;
@@ -800,14 +960,11 @@ function buildFaceFields(an){
     for(const idx of IRIS){const[cx,cy]=pt(idx);splat(prior,w,h,cx,cy,0.56,an.faceW*0.030);}
   }
   blur(prior,w,h,Math.max(2,an.faceW*0.085));
-
   let mx=0;
   for(let i=0;i<n;i++){prior[i]*=oval[i];if(oval[i]>0.3&&prior[i]>mx)mx=prior[i];}
   const inv=mx>1e-5?1/mx:1;
   for(let i=0;i<n;i++)prior[i]=Math.min(1,prior[i]*inv);
   an.prior=prior;
-
-  /* kubah rambut/badan: satu massa volumetrik membulat, bukan datar */
   const region=new Float32Array(n);
   for(let i=0;i<n;i++)region[i]=an.bin[i]*(1-ovalHard[i]);
   blur(region,w,h,Math.max(4,an.faceW*0.55));
@@ -815,23 +972,52 @@ function buildFaceFields(an){
   const di=dm>1e-5?1/dm:1;
   an.dome=new Float32Array(n);
   for(let i=0;i<n;i++)an.dome[i]=region[i]*di;
-
   setChip('lm',`${lms.length} TITIK · FW ${Math.round(an.faceW)}PX`,'ok');
 }
 
+/* v2.0: mode neural — detail = high-pass peta kedalaman sendiri
+   (pertegas tepi struktur tanpa membawa artefak pencahayaan) */
 function buildDetail(an){
-  const {w,h,n,lum}=an;
+  const {w,h,n}=an;
+  if(an.mode==='neural'){
+    const src=an.neural;
+    const small=Float32Array.from(src);
+    blur(small,w,h,Math.max(2,Math.round(Math.min(w,h)/140)),2);
+    const big=Float32Array.from(src);
+    blur(big,w,h,Math.max(6,Math.round(Math.min(w,h)/11)),3);
+    an.detail=new Float32Array(n);
+    for(let i=0;i<n;i++)an.detail[i]=clamp(small[i]-big[i],-0.35,0.35);
+    return;
+  }
   const fw=an.face?an.faceW:Math.min(w,h)*0.5;
-  const small=Float32Array.from(lum);
+  const small=Float32Array.from(an.lum);
   blur(small,w,h,Math.max(2,fw*0.035));
-  const big=Float32Array.from(lum);
+  const big=Float32Array.from(an.lum);
   blur(big,w,h,Math.max(6,fw*0.65));
   an.detail=new Float32Array(n);
   for(let i=0;i<n;i++)an.detail[i]=clamp(small[i]-big[i],-0.3,0.3);
 }
 
-/* v1.1: mode bayangan diperkuat — normalisasi persentil (tahan piksel
-   ekstrem) + blur skala lebih tajam, agar subjek non-wajah lebih terdefinisi */
+/* v2.0: basis depth mode neural — normalisasi persentil + smootherstep,
+   lantai 0.06 agar bagian terendah subjek tetap terukir (bukan lenyap) */
+function buildNeuralBase(an){
+  const {w,h,n,bin,neural}=an;
+  const vals=[];
+  for(let i=0;i<n;i+=7)if(bin[i])vals.push(neural[i]);
+  let lo=0,hi=1;
+  if(vals.length){
+    vals.sort((a,b)=>a-b);
+    lo=vals[Math.floor(vals.length*0.02)];
+    hi=vals[Math.min(vals.length-1,Math.floor(vals.length*0.98))];
+  }
+  const ri=(hi-lo)>0.03?1/(hi-lo):0;
+  an.base=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    const t=bin[i]?clamp((neural[i]-lo)*ri,0,1):0;
+    an.base[i]=0.06+0.94*ss(t);
+  }
+}
+
 function buildFallbackBase(an){
   const {w,h,n}=an;
   let dmx=0;for(let i=0;i<n;i++)if(an.dist[i]>dmx)dmx=an.dist[i];
@@ -856,7 +1042,7 @@ function buildFallbackBase(an){
 }
 
 /* ================================================================
-   TAHAP B — SINTESIS (sinkron, cepat; dipanggil tiap pergeseran slider)
+   TAHAP B — SINTESIS
    ================================================================ */
 function readParams(){
   return{
@@ -878,9 +1064,11 @@ function synthesize(){
   const p=readParams();P=p;
   const depth=new Float32Array(n);
 
-  if(A.face){
-    /* Relief anatomis: lerp antara massa rambut/badan dan prior wajah,
-       plus detail mikro dari bayangan asli di dalam oval wajah. */
+  if(A.mode==='neural'){
+    /* depth = estimasi neural (sudah 0..1) + detail mikro high-pass */
+    const detAmp=p.detW*0.55;
+    for(let i=0;i<n;i++)depth[i]=A.base[i]+detAmp*detail[i]*A.maskSoft[i];
+  }else if(A.face){
     const detAmp=p.detW*0.5;
     for(let i=0;i<n;i++){
       const o=oval[i];
@@ -890,25 +1078,18 @@ function synthesize(){
       depth[i]=v;
     }
   }else{
-    /* v1.1: amplitudo detail lebih kuat untuk subjek non-wajah */
     const detAmp=p.detW*0.62;
     for(let i=0;i<n;i++)depth[i]=A.fBase[i]+detAmp*detail[i]*A.maskSoft[i];
   }
 
-  /* Ramp kemunculan ekstra-lebar: kurva-S dari transformasi jarak
-     + pelepasan ke hitam pada tepi kanvas. Tanpa dinding vertikal. */
   const rw=p.rampW,brw=Math.max(1,rw*0.9);
   for(let y=0;y<h;y++)for(let x=0;x<w;x++){
     const i=y*w+x;
     depth[i]*=ss(dist[i]/rw)*ss(Math.min(x,y,w-1-x,h-1-y)/brw);
   }
 
-  /* Fillet permukaan: blur gauss menjamin kelengkungan menerus (tanpa teras).
-     Diterapkan SETELAH ramp agar tepi ikut membulat. */
   blur(depth,w,h,p.fillet,3);
 
-  /* Kurva Z: tension S + amplifikasi pangkat — monotonik & mulus,
-     jadi amplifikasi agresif tak pernah menghasilkan artefak Z-step. */
   let mx=0;
   for(let i=0;i<n;i++)if(depth[i]>mx)mx=depth[i];
   const inv=mx>1e-6?1/mx:1,pe=1/p.zAmp,k=1-p.tension;
@@ -916,10 +1097,13 @@ function synthesize(){
     let c=(depth[i]>0?depth[i]:0)*inv;
     c=k*c+p.tension*ss(c);
     c=Math.pow(c,pe);
-    depth[i]=bin[i]?c:0; /* latar: hitam murni */
+    depth[i]=bin[i]?c:0;
   }
 
   D=depth;
+  /* salinan terhalus untuk normal relief — kurangi speckle/noise */
+  A.Dn=Float32Array.from(D);
+  blur(A.Dn,w,h,1,2);
   A.synthMs=performance.now()-t0;
   renderDepth();
   reliefDirty=true;
@@ -939,11 +1123,15 @@ function renderDepth(){
   dctx.putImageData(img,0,0);
 }
 
-/* ---------- render relief — heightmap disinari (cahaya bisa diseret) ---------- */
+/* ---------- render relief — v2.0: pencahayaan tahan bising ----------
+   gradien dihitung dari salinan terhalus + dibatasi; diffuse memakai
+   wrap (half-lambert) dan ambient dinaikkan — tidak ada lagi area
+   yang jatuh menjadi hitam pekat. */
 function renderRelief(){
   reliefDirty=false;
   if(!A||!D)return;
   const w=A.w,h=A.h,p=P||readParams();
+  const Dn=A.Dn||D;
   const rs=Math.min(1,820/Math.max(w,h));
   const rw=Math.max(1,Math.round(w*rs)),rh=Math.max(1,Math.round(h*rs));
   reliefCanvas.width=rw;reliefCanvas.height=rh;
@@ -953,24 +1141,24 @@ function renderRelief(){
   const Lx=Math.sin(la)*Math.cos(le),Ly=-Math.cos(la)*Math.cos(le),Lz=Math.sin(le);
   let Hx=Lx,Hy=Ly,Hz=Lz+1;
   const hl=Math.sqrt(Hx*Hx+Hy*Hy+Hz*Hz);Hx/=hl;Hy/=hl;Hz/=hl;
-  const K=22*rs;
+  const K=22*rs,GMAX=1.8;
   const ar=M.a[0],ag=M.a[1],ab=M.a[2],sr=M.sc[0],sg=M.sc[1],sb=M.sc[2],sp=M.sp;
   let o=0;
   for(let Y=0;Y<rh;Y++){
     const sy=clamp(Math.round(Y/rs),1,h-2),rY=sy*w;
     for(let X=0;X<rw;X++,o+=4){
       const sx=clamp(Math.round(X/rs),1,w-2),i=rY+sx;
-      const z=D[i];
-      if(!A.bin[i]&&z<0.004){dd[o]=dd[o+1]=dd[o+2]=0;dd[o+3]=255;continue;}
-      const gx=(D[i+1]-D[i-1])*K,gy=(D[i+w]-D[i-w])*K;
+      if(!A.bin[i]&&D[i]<0.004){dd[o]=dd[o+1]=dd[o+2]=0;dd[o+3]=255;continue;}
+      const gx=clamp((Dn[i+1]-Dn[i-1])*K,-GMAX,GMAX);
+      const gy=clamp((Dn[i+w]-Dn[i-w])*K,-GMAX,GMAX);
       const nx=-gx,ny=-gy;
       const il=1/Math.sqrt(nx*nx+ny*ny+1),nz=il;
       const ndl=(nx*il)*Lx+(ny*il)*Ly+nz*Lz;
-      const dif=ndl>0?ndl:0;
+      const dif=Math.max(0,(ndl+0.35)/1.35); /* wrap — sisi gelap tetap terbaca */
       const ndh=(nx*il)*Hx+(ny*il)*Hy+nz*Hz;
       let spec=0;
       if(ndh>0){const s2=ndh*ndh,s4=s2*s2,s8=s4*s4,s16=s8*s8,s32=s16*s16;spec=s32*s16*sp;}
-      const kd=(0.14+0.92*dif)*(0.55+0.45*nz); /* cekung sedikit lebih gelap */
+      const kd=(0.20+0.85*dif)*(0.55+0.45*nz);
       const R=ar*kd+spec*sr,G=ag*kd+spec*sg,B=ab*kd+spec*sb;
       dd[o]=R>255?255:R;dd[o+1]=G>255?255:G;dd[o+2]=B>255?255:B;dd[o+3]=255;
     }
@@ -995,7 +1183,6 @@ function sweepLight(){
   })();
 }
 
-/* ---------- compare: pembanding sumber ↔ depth ---------- */
 function renderCompare(){
   if(!A||!D)return;
   const {w,h}=A;
@@ -1009,7 +1196,6 @@ function renderCompare(){
   cctx.save();cctx.translate(x,h/2);cctx.rotate(Math.PI/4);cctx.fillRect(-6,-6,12,12);cctx.restore();
 }
 
-/* ---------- tampilan & pembacaan ---------- */
 const HINTS={
   depth:'ARAHKAN KURSOR PADA KANVAS UNTUK MEMBACA NILAI Z',
   relief:'SERET PADA KANVAS UNTUK MEMUTAR ARAH CAHAYA — PERIKSA KELENGKUNGAN LERENG',
@@ -1029,43 +1215,51 @@ function updateReadout(){
   if(!A||!D){ro.innerHTML='<span>menunggu sumber…</span>';return;}
   const p=P||readParams();
   const azd=Math.round(((az%360)+360)%360);
+  const mode=A.mode==='neural'?'NEURAL':(A.face?'ANATOMIS':'BAYANGAN');
   ro.innerHTML=
     `<span>DIM <b>${A.w}×${A.h}</b></span>`+
     `<span>SUBJEK <b>${(A.area*100).toFixed(1)}%</b></span>`+
-    `<span>MODE <span class="acc">${A.face?'ANATOMIS':'BAYANGAN'}</span></span>`+
+    `<span>MODE <span class="acc">${mode}</span></span>`+
     `<span>PAHAT <span class="acc">${autoMode?'AUTO':'MANUAL'}</span></span>`+
     `<span>RAMP <b>${p.rampW}px</b></span>`+
     `<span>PUNCAK <b>${p.mm.toFixed(1)}mm</b></span>`+
     `<span>SINTESIS <b>${(A.synthMs||0).toFixed(0)}ms</b></span>`+
     (view==='relief'?`<span>CAHAYA <span class="acc">${azd}°/${Math.round(elev)}°</span></span>`:'');
 }
+function syncCtlAvailability(){
+  const neuralOn=!!(A&&A.mode==='neural');
+  $('#ctl-hairL').classList.toggle('off',neuralOn);
+}
 
-/* ================================================================
-   v1.1 — AUTO-TUNE: parameter seksi 03 dihitung dari statistik foto.
-   Basis keputusan: kontras luminance subjek (persentil 8–92),
-   radius subjek efektif, dan lebar wajah (bila landmark aktif).
-   ================================================================ */
+/* ---------- AUTO-TUNE ---------- */
 function autoTune(){
   if(!A||!A.dist)return null;
   const {n,bin,lum}=A;
+  if(A.mode==='neural'){
+    const rad=Math.sqrt((A.area*n)/Math.PI);
+    return{
+      zAmp:1.15,tension:0.40,
+      rampW:Math.round(clamp(rad*0.11,28,64)),
+      fillet:Math.round(clamp(rad/140,2,10)),
+      hairL:0.30,detW:0.35,
+    };
+  }
   const vals=[];
   for(let i=0;i<n;i+=7){if(bin[i])vals.push(lum[i]);}
   if(vals.length<20)return null;
   vals.sort((a,b)=>a-b);
   const q=p=>vals[Math.min(vals.length-1,Math.floor(p*vals.length))];
-  const range=clamp(q(0.92)-q(0.08),0.05,1); /* kontras intrinsik subjek */
-  const rad=Math.sqrt((A.area*n)/Math.PI);  /* radius subjek efektif */
+  const range=clamp(q(0.92)-q(0.08),0.05,1);
+  const rad=Math.sqrt((A.area*n)/Math.PI);
   const fw=A.face?A.faceW:Math.max(40,rad*0.7);
   return{
-    /* foto kontras-rendah (mis. objek gelap) → amplifikasi lebih kuat;
-       subjek non-wajah diberi rentang lebih agresif daripada wajah */
     zAmp:A.face?+clamp(1.30-range*0.30,0.85,1.35).toFixed(2)
                :+clamp(1.75-range*1.10,0.75,2.20).toFixed(2),
     tension:A.face?0.45:+clamp(0.32+range*0.35,0.30,0.62).toFixed(2),
-    rampW:Math.round(clamp(rad*0.11,28,64)),       /* ramp proporsional ukuran subjek */
-    fillet:Math.round(clamp(fw/60,3,12)),          /* fillet proporsional skala fitur */
+    rampW:Math.round(clamp(rad*0.11,28,64)),
+    fillet:Math.round(clamp(fw/60,3,12)),
     hairL:A.face?0.34:0.30,
-    detW:A.face?0.30:+clamp(0.45+range*0.30,0.40,0.80).toFixed(2), /* non-wajah: detail penting */
+    detW:A.face?0.30:+clamp(0.45+range*0.30,0.40,0.80).toFixed(2),
   };
 }
 function refreshOutputs(){
@@ -1084,31 +1278,42 @@ function applyAuto(){
   const map={zAmp:'c-zAmp',tension:'c-tension',rampW:'c-rampW',fillet:'c-fillet',hairL:'c-hairL',detW:'c-detW'};
   for(const k in map)$('#'+map[k]).value=p[k];
   refreshOutputs();
-  log(`AUTO — parameter dioptimalkan · Z <span class="k">${p.zAmp.toFixed(2)}</span> · kontras <span class="k">${Math.round(p.tension*100)}%</span> · ramp <span class="k">${p.rampW}px</span> · fillet <span class="k">${p.fillet}px</span> · detail <span class="k">${Math.round(p.detW*100)}%</span>`);
+  log(`AUTO — parameter dioptimalkan · Z <span class="k">${p.zAmp.toFixed(2)}</span> · kontras <span class="k">${Math.round(p.tension*100)}%</span> · ramp <span class="k">${p.rampW}px</span> · detail <span class="k">${Math.round(p.detW*100)}%</span>`);
   return true;
 }
 
-/* ---------- unggah gambar ---------- */
+/* ---------- unggah gambar (jpg/png/webp/bmp/gif/avif …) ---------- */
+const IMG_EXT=/\.(jpe?g|png|webp|bmp|gif|avif|tiff?)$/i;
 function handleFiles(files){
   const f=files&&files[0];
   if(!f)return;
   if(running){toast('Masih memproses — mohon tunggu');return;}
-  if(!f.type.startsWith('image/')){toast('Berkas bukan gambar');return;}
+  if(!f.type.startsWith('image/')&&!IMG_EXT.test(f.name||'')){
+    toast('Format berkas tidak didukung');
+    return;
+  }
   const url=URL.createObjectURL(f);
   const img=new Image();
   img.onload=async()=>{
     srcImg=img;srcName=f.name||'pasted-image';
     $('#fileMeta').textContent=`${srcName} · ${img.naturalWidth}×${img.naturalHeight}`;
     $('#empty').style.display='none';
-    await runAnalysis();
-    applyAuto(); /* v1.1: setel slider otomatis untuk foto ini */
-    synthesize();
-    log(`SINTESIS — ${A.w}×${A.h} dalam <span class="k">${A.synthMs.toFixed(0)} ms</span> · ramp ${P.rampW}px kurva-S`);
-    setView('relief');
-    sweepLight();
+    await runAll();
+    if(A&&D){
+      log(`SINTESIS — ${A.w}×${A.h} dalam <span class="k">${A.synthMs.toFixed(0)} ms</span> · ramp ${P.rampW}px kurva-S`);
+      setView('relief');
+      sweepLight();
+    }
   };
-  img.onerror=()=>toast('Gagal memuat gambar');
+  img.onerror=()=>toast('Gagal memuat gambar — format mungkin tidak didukung peramban');
   img.src=url;
+}
+
+async function runAll(){
+  await runAnalysis();
+  applyAuto();
+  synthesize();
+  if(view==='relief')renderRelief();
 }
 
 /* ---------- ekspor ---------- */
@@ -1179,7 +1384,6 @@ function cmpMove(e){
   renderCompare();
 }
 
-/* probe nilai Z pada depth map */
 const tip=$('#tip');
 depthCanvas.addEventListener('mousemove',e=>{
   if(!A||!D)return;
@@ -1210,7 +1414,6 @@ for(const [id,fmt] of CTL){
   const upd=()=>out.textContent=fmt(el.value);
   upd();
   el.addEventListener('input',()=>{
-    /* v1.1: sentuhan manual apa pun mematikan AUTO */
     if(autoMode){
       autoMode=false;syncAutoSeg();
       log('MODE PEMAHATAN — <span class="k">manual</span> · auto-tune dinonaktifkan');
@@ -1223,7 +1426,6 @@ for(const [id,fmt] of CTL){
   });
 }
 
-/* toggle AUTO / MANUAL di kepala seksi 03 */
  $$('#autoSeg button').forEach(b=>b.addEventListener('click',()=>{
   const want=b.dataset.auto==='1';
   if(want===autoMode)return;
@@ -1244,13 +1446,13 @@ for(const [id,fmt] of CTL){
  $('#c-invert').addEventListener('change',e=>{
   log(`EKSPOR — inversi kedalaman ${e.target.checked?'<span class="k">aktif</span>':'nonaktif'}`);
 });
+ $('#c-neural').addEventListener('change',e=>{
+  log(`NEURAL — ${e.target.checked?'<span class="k">aktif</span>':'nonaktif'} · memproses ulang…`);
+  if(srcImg)runAll();
+});
  $$('.tabs button').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
- $('#resSel').addEventListener('change',async()=>{
-  if(srcImg){await runAnalysis();applyAuto();synthesize();if(view==='relief')renderRelief();}
-});
- $('#btn-rerun').addEventListener('click',async()=>{
-  if(srcImg){await runAnalysis();applyAuto();synthesize();if(view==='relief')renderRelief();}
-});
+ $('#resSel').addEventListener('change',()=>{if(srcImg)runAll();});
+ $('#btn-rerun').addEventListener('click',()=>{if(srcImg)runAll();});
 
 /* dropzone: klik, tarik-lepas, tempel */
 const drop=$('#drop'),fileInput=$('#fileInput');
@@ -1356,10 +1558,9 @@ renderProtocol();
 syncAutoSeg();
 setView('depth');
 updateReadout();
-log('BASRELIEF v1.1 — atelier depth map untuk CNC &amp; Vectric Aspire');
-log('mode <span class="k">AUTO</span> aktif · parameter disetel otomatis per foto');
+log('BASRELIEF v2.0 — atelier depth map untuk CNC &amp; Vectric Aspire');
+log('mesin <span class="k">NEURAL</span>: Depth Anything V2 · foto objek apa pun, bukan hanya wajah');
 log('semua komputasi berjalan <span class="k">lokal</span> — tidak ada gambar yang dikirim ke server');
-setTimeout(()=>ensureModels(),1500); /* pemanasan model di latar belakang */
 </script>
 </body>
 </html>
