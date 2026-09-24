@@ -55,6 +55,12 @@ section{margin-bottom:26px}
 .sec-head{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--line2);padding-bottom:8px;margin-bottom:14px}
 .sec-num{font-family:var(--f-m);color:var(--brass);font-size:10px}
 .sec-title{font-size:11px;letter-spacing:.28em;font-weight:500;color:var(--ink)}
+.sec-hint{font-size:9px;color:var(--faint);letter-spacing:.06em;margin:-6px 0 12px;line-height:1.6}
+
+/* toggle AUTO / MANUAL pada kepala seksi 03 */
+.mini-seg{display:flex;margin-left:auto;border:1px solid var(--line);align-self:center}
+.mini-seg button{background:none;border:0;color:var(--muted);font-size:9px;letter-spacing:.16em;font-weight:500;padding:4px 11px;cursor:pointer;transition:.15s}
+.mini-seg button.on{background:var(--brass);color:#161307;font-weight:600}
 
 /* dropzone — sudut art deco via 8 gradien */
 .drop{position:relative;border:1px dashed #2c2c22;background-color:var(--bg2);padding:24px 14px;text-align:center;cursor:pointer;transition:border-color .2s,background-color .2s;
@@ -236,7 +242,7 @@ footer{border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-c
           <line x1="0" y1="42" x2="64" y2="42"/>
         </svg>
         <div class="drop-title">JATUHKAN FOTO PORTRAIT</div>
-        <div class="drop-sub">klik untuk memilih · tarik-lepas · tempel (Ctrl+V)<br>foto dipecah sepenuhnya secara lokal</div>
+        <div class="drop-sub">klik untuk memilih · tarik-lepas · tempel (Ctrl+V)<br>foto diproses sepenuhnya secara lokal</div>
         <div id="fileMeta"></div>
       </div>
       <input type="file" id="fileInput" accept="image/*" hidden>
@@ -257,7 +263,14 @@ footer{border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-c
     </section>
 
     <section>
-      <div class="sec-head"><span class="sec-num">03</span><span class="sec-title">PEMAHATAN</span></div>
+      <div class="sec-head">
+        <span class="sec-num">03</span><span class="sec-title">PEMAHATAN</span>
+        <div class="mini-seg" id="autoSeg">
+          <button data-auto="1" class="on">AUTO</button>
+          <button data-auto="0">MANUAL</button>
+        </div>
+      </div>
+      <div class="sec-hint">AUTO menyetel seluruh parameter dari statistik foto setiap gambar baru dimuat. Geser slider mana pun untuk beralih ke manual.</div>
       <div class="ctl">
         <div class="ctl-top"><label for="c-zAmp">AMPLIFIKASI Z</label><output></output></div>
         <input type="range" id="c-zAmp" min="0.5" max="2.5" step="0.05" value="1.0">
@@ -266,25 +279,25 @@ footer{border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-c
       <div class="ctl">
         <div class="ctl-top"><label for="c-tension">KONTRAS PAHATAN</label><output></output></div>
         <input type="range" id="c-tension" min="0" max="1" step="0.01" value="0.45">
-        <div class="hint">kurva-S pemisah landmark wajah</div>
+        <div class="hint">kurva-S pemisah landmark / struktur</div>
       </div>
       <div class="ctl">
         <div class="ctl-top"><label for="c-rampW">RAMP KEMUNCULAN</label><output></output></div>
         <input type="range" id="c-rampW" min="20" max="80" step="1" value="44">
-        <div class="hint">transisi ke hitam — 30–50 px ideal (protokol)</div>
+        <div class="hint">lebar transisi ke hitam — 30–50 px ideal (protokol)</div>
       </div>
       <div class="ctl">
         <div class="ctl-top"><label for="c-fillet">FILET PERMUKAAN</label><output></output></div>
         <input type="range" id="c-fillet" min="0" max="14" step="1" value="5">
       </div>
       <div class="ctl">
-        <div class="ctl-top"><label for="c-hairL">ELEVASI RAMBUT &amp; BADAN</label><output></output></div>
+        <div class="ctl-top"><label for="c-hairL">ELEVASI MASSA (RAMBUT/BADAN)</label><output></output></div>
         <input type="range" id="c-hairL" min="0.10" max="0.60" step="0.01" value="0.34">
       </div>
       <div class="ctl">
         <div class="ctl-top"><label for="c-detW">DETAIL MIKRO</label><output></output></div>
         <input type="range" id="c-detW" min="0" max="1" step="0.01" value="0.30">
-        <div class="hint">relief halus kelopak &amp; bibir dari bayangan asli</div>
+        <div class="hint">relief halus fitur &amp; permukaan dari bayangan asli</div>
       </div>
     </section>
 
@@ -330,7 +343,7 @@ footer{border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-c
           <line x1="0" y1="42" x2="64" y2="42"/>
         </svg>
         <h2>MENUNGGU SUBJEK</h2>
-        <p>SEMUAKAN KOMPUTASI DI PERAMBAN<br>TIDAK ADA GAMBAR YANG DIKIRIM KE SERVER</p>
+        <p>SEMUA KOMPUTASI DI PERAMBAN<br>TIDAK ADA GAMBAR YANG DIKIRIM KE SERVER</p>
       </div>
 
       <div class="view on" data-view="depth"><canvas id="cv-depth"></canvas></div>
@@ -392,6 +405,8 @@ footer{border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-c
    BASRELIEF — generator depth map bas-relief untuk CNC
    Pipeline: segmentasi subjek → landmark wajah → prior anatomis
    → ramp S-curve → fillet → kurva Z → ekspor PNG 16-bit.
+   v1.1 — mode AUTO pada seksi PEMAHATAN + mode bayangan diperkuat
+   untuk subjek non-wajah (objek, makhluk, scene).
    ================================================================ */
 
 /* ---------- utilitas dasar ---------- */
@@ -632,6 +647,7 @@ const IRIS=[468,473];
 let srcImg=null,srcName='',A=null,D=null,P=null;
 let view='depth',analyzing=false,running=false;
 let az=-60,elev=32,mat='brass',reliefDirty=true,sweepId=0;
+let autoMode=true; /* v1.1: parameter pemahatan otomatis */
 let cmpX=0.5,cmpDrag=false,relDrag=false,lastPX=0,lastPY=0,reliefRAF=0,synthTimer=0;
 
 const depthCanvas=$('#cv-depth'),dctx=depthCanvas.getContext('2d');
@@ -814,25 +830,33 @@ function buildDetail(an){
   for(let i=0;i<n;i++)an.detail[i]=clamp(small[i]-big[i],-0.3,0.3);
 }
 
+/* v1.1: mode bayangan diperkuat — normalisasi persentil (tahan piksel
+   ekstrem) + blur skala lebih tajam, agar subjek non-wajah lebih terdefinisi */
 function buildFallbackBase(an){
   const {w,h,n}=an;
   let dmx=0;for(let i=0;i<n;i++)if(an.dist[i]>dmx)dmx=an.dist[i];
   const di=dmx>1?1/dmx:1;
   const lb=Float32Array.from(an.lum);
-  blur(lb,w,h,Math.max(4,Math.round(Math.min(w,h)/18)));
-  let mn=1,mx=0;
-  for(let i=0;i<n;i++)if(an.bin[i]){if(lb[i]<mn)mn=lb[i];if(lb[i]>mx)mx=lb[i];}
-  const ri=(mx-mn)>0.05?1/(mx-mn):0;
+  blur(lb,w,h,Math.max(4,Math.round(Math.min(w,h)/14)));
+  const vals=[];
+  for(let i=0;i<n;i+=7)if(an.bin[i])vals.push(lb[i]);
+  let mn=0,mx=1;
+  if(vals.length){
+    vals.sort((a,b)=>a-b);
+    mn=vals[Math.floor(vals.length*0.05)];
+    mx=vals[Math.min(vals.length-1,Math.floor(vals.length*0.95))];
+  }
+  const ri=(mx-mn)>0.04?1/(mx-mn):0;
   an.fBase=new Float32Array(n);
   for(let i=0;i<n;i++){
     const dome=ss(an.dist[i]*di);
     const lumN=an.bin[i]?ss(clamp((lb[i]-mn)*ri,0,1)):0;
-    an.fBase[i]=(0.14+0.44*lumN+0.34*dome)*an.maskSoft[i];
+    an.fBase[i]=(0.16+0.46*lumN+0.32*dome)*an.maskSoft[i];
   }
 }
 
 /* ================================================================
-   TAHAP B — SINTESIS (sinkron, cepas; dipanggil tiap pergeseran slider)
+   TAHAP B — SINTESIS (sinkron, cepat; dipanggil tiap pergeseran slider)
    ================================================================ */
 function readParams(){
   return{
@@ -866,7 +890,8 @@ function synthesize(){
       depth[i]=v;
     }
   }else{
-    const detAmp=p.detW*0.55;
+    /* v1.1: amplitudo detail lebih kuat untuk subjek non-wajah */
+    const detAmp=p.detW*0.62;
     for(let i=0;i<n;i++)depth[i]=A.fBase[i]+detAmp*detail[i]*A.maskSoft[i];
   }
 
@@ -1008,10 +1033,59 @@ function updateReadout(){
     `<span>DIM <b>${A.w}×${A.h}</b></span>`+
     `<span>SUBJEK <b>${(A.area*100).toFixed(1)}%</b></span>`+
     `<span>MODE <span class="acc">${A.face?'ANATOMIS':'BAYANGAN'}</span></span>`+
+    `<span>PAHAT <span class="acc">${autoMode?'AUTO':'MANUAL'}</span></span>`+
     `<span>RAMP <b>${p.rampW}px</b></span>`+
     `<span>PUNCAK <b>${p.mm.toFixed(1)}mm</b></span>`+
     `<span>SINTESIS <b>${(A.synthMs||0).toFixed(0)}ms</b></span>`+
     (view==='relief'?`<span>CAHAYA <span class="acc">${azd}°/${Math.round(elev)}°</span></span>`:'');
+}
+
+/* ================================================================
+   v1.1 — AUTO-TUNE: parameter seksi 03 dihitung dari statistik foto.
+   Basis keputusan: kontras luminance subjek (persentil 8–92),
+   radius subjek efektif, dan lebar wajah (bila landmark aktif).
+   ================================================================ */
+function autoTune(){
+  if(!A||!A.dist)return null;
+  const {n,bin,lum}=A;
+  const vals=[];
+  for(let i=0;i<n;i+=7){if(bin[i])vals.push(lum[i]);}
+  if(vals.length<20)return null;
+  vals.sort((a,b)=>a-b);
+  const q=p=>vals[Math.min(vals.length-1,Math.floor(p*vals.length))];
+  const range=clamp(q(0.92)-q(0.08),0.05,1); /* kontras intrinsik subjek */
+  const rad=Math.sqrt((A.area*n)/Math.PI);  /* radius subjek efektif */
+  const fw=A.face?A.faceW:Math.max(40,rad*0.7);
+  return{
+    /* foto kontras-rendah (mis. objek gelap) → amplifikasi lebih kuat;
+       subjek non-wajah diberi rentang lebih agresif daripada wajah */
+    zAmp:A.face?+clamp(1.30-range*0.30,0.85,1.35).toFixed(2)
+               :+clamp(1.75-range*1.10,0.75,2.20).toFixed(2),
+    tension:A.face?0.45:+clamp(0.32+range*0.35,0.30,0.62).toFixed(2),
+    rampW:Math.round(clamp(rad*0.11,28,64)),       /* ramp proporsional ukuran subjek */
+    fillet:Math.round(clamp(fw/60,3,12)),          /* fillet proporsional skala fitur */
+    hairL:A.face?0.34:0.30,
+    detW:A.face?0.30:+clamp(0.45+range*0.30,0.40,0.80).toFixed(2), /* non-wajah: detail penting */
+  };
+}
+function refreshOutputs(){
+  for(const [id,fmt] of CTL){
+    const el=$('#'+id);
+    el.closest('.ctl').querySelector('output').textContent=fmt(el.value);
+  }
+}
+function syncAutoSeg(){
+  $$('#autoSeg button').forEach(b=>b.classList.toggle('on',(b.dataset.auto==='1')===autoMode));
+}
+function applyAuto(){
+  if(!autoMode)return false;
+  const p=autoTune();
+  if(!p)return false;
+  const map={zAmp:'c-zAmp',tension:'c-tension',rampW:'c-rampW',fillet:'c-fillet',hairL:'c-hairL',detW:'c-detW'};
+  for(const k in map)$('#'+map[k]).value=p[k];
+  refreshOutputs();
+  log(`AUTO — parameter dioptimalkan · Z <span class="k">${p.zAmp.toFixed(2)}</span> · kontras <span class="k">${Math.round(p.tension*100)}%</span> · ramp <span class="k">${p.rampW}px</span> · fillet <span class="k">${p.fillet}px</span> · detail <span class="k">${Math.round(p.detW*100)}%</span>`);
+  return true;
 }
 
 /* ---------- unggah gambar ---------- */
@@ -1027,6 +1101,7 @@ function handleFiles(files){
     $('#fileMeta').textContent=`${srcName} · ${img.naturalWidth}×${img.naturalHeight}`;
     $('#empty').style.display='none';
     await runAnalysis();
+    applyAuto(); /* v1.1: setel slider otomatis untuk foto ini */
     synthesize();
     log(`SINTESIS — ${A.w}×${A.h} dalam <span class="k">${A.synthMs.toFixed(0)} ms</span> · ramp ${P.rampW}px kurva-S`);
     setView('relief');
@@ -1135,6 +1210,11 @@ for(const [id,fmt] of CTL){
   const upd=()=>out.textContent=fmt(el.value);
   upd();
   el.addEventListener('input',()=>{
+    /* v1.1: sentuhan manual apa pun mematikan AUTO */
+    if(autoMode){
+      autoMode=false;syncAutoSeg();
+      log('MODE PEMAHATAN — <span class="k">manual</span> · auto-tune dinonaktifkan');
+    }
     upd();
     clearTimeout(synthTimer);
     synthTimer=setTimeout(()=>{
@@ -1142,6 +1222,19 @@ for(const [id,fmt] of CTL){
     },60);
   });
 }
+
+/* toggle AUTO / MANUAL di kepala seksi 03 */
+ $$('#autoSeg button').forEach(b=>b.addEventListener('click',()=>{
+  const want=b.dataset.auto==='1';
+  if(want===autoMode)return;
+  autoMode=want;syncAutoSeg();
+  if(want)log('MODE PEMAHATAN — <span class="k">auto</span> · parameter dihitung dari statistik foto');
+  if(autoMode&&A){
+    applyAuto();synthesize();
+    if(view==='relief')renderRelief();
+  }
+}));
+
  $$('.seg button').forEach(b=>b.addEventListener('click',()=>{
   mat=b.dataset.mat;
   $$('.seg button').forEach(x=>x.classList.toggle('on',x===b));
@@ -1153,10 +1246,10 @@ for(const [id,fmt] of CTL){
 });
  $$('.tabs button').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
  $('#resSel').addEventListener('change',async()=>{
-  if(srcImg){await runAnalysis();synthesize();if(view==='relief')renderRelief();}
+  if(srcImg){await runAnalysis();applyAuto();synthesize();if(view==='relief')renderRelief();}
 });
  $('#btn-rerun').addEventListener('click',async()=>{
-  if(srcImg){await runAnalysis();synthesize();if(view==='relief')renderRelief();}
+  if(srcImg){await runAnalysis();applyAuto();synthesize();if(view==='relief')renderRelief();}
 });
 
 /* dropzone: klik, tarik-lepas, tempel */
@@ -1260,9 +1353,11 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 /* ---------- inisialisasi ---------- */
 if(window.lucide)lucide.createIcons();
 renderProtocol();
+syncAutoSeg();
 setView('depth');
 updateReadout();
-log('BASRELIEF v1.0 — atelier depth map untuk CNC &amp; Vectric Aspire');
+log('BASRELIEF v1.1 — atelier depth map untuk CNC &amp; Vectric Aspire');
+log('mode <span class="k">AUTO</span> aktif · parameter disetel otomatis per foto');
 log('semua komputasi berjalan <span class="k">lokal</span> — tidak ada gambar yang dikirim ke server');
 setTimeout(()=>ensureModels(),1500); /* pemanasan model di latar belakang */
 </script>
