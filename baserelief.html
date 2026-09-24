@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BASRELIEF — Atelier Depth Map untuk CNC</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 44'%3E%3Cg fill='none' stroke='%23c8a44e' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M8 42 A24 24 0 0 1 56 42'/%3E%3Cpath d='M18 42 A14 14 0 0 1 46 42'/%3E%3Cline x1='32' y1='22' x2='32' y2='13'/%3E%3Cline x1='43' y1='23' x2='46' y2='17.8'/%3E%3Cline x1='21' y1='23' x2='18' y2='17.8'/%3E%3Cline x1='0' y1='42' x2='64' y2='42'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Limelight&family=Jost:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+<style>
+/* ============ fondasi ============ */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0b0b09; --bg2:#070706; --panel:#0e0e0b;
+  --line:#2a2a20; --line2:#1b1b14;
+  --ink:#e9e2cd; --muted:#8f8a6f; --faint:#5a563e;
+  --brass:#c8a44e; --brass-hi:#e5c873; --brass-dim:#8a7431;
+  --err:#c2703f;
+  --f-d:'Limelight',serif; --f-b:'Jost',sans-serif; --f-m:'IBM Plex Mono',monospace;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-b);font-weight:300;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::selection{background:var(--brass);color:#141208}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#26261b}
+button{font-family:var(--f-b)}
+svg.lucide{width:14px;height:14px;stroke-width:1.75}
+
+/* ============ header ============ */
+header{display:flex;align-items:center;gap:16px;padding:0 28px;height:64px;border-bottom:1px solid var(--line);position:relative}
+header::after{content:'';position:absolute;left:0;right:0;bottom:-4px;height:1px;background:var(--line2)}
+.brand{display:flex;align-items:center;gap:14px}
+.brand .sun{color:var(--brass);width:34px;height:24px;flex:none}
+.wordmark{font-family:var(--f-d);font-size:19px;letter-spacing:.30em;color:var(--ink);line-height:1}
+.tagline{font-family:var(--f-m);font-size:8.5px;letter-spacing:.34em;color:var(--muted);margin-top:4px}
+.hspace{flex:1}
+.hchip{display:flex;align-items:center;gap:8px;font-family:var(--f-m);font-size:9.5px;letter-spacing:.16em;color:var(--muted);border:1px solid var(--line);padding:6px 12px}
+.hchip .dot{width:6px;height:6px;background:var(--faint);transform:rotate(45deg);transition:background .3s}
+.hchip.ok .dot{background:var(--brass)}
+.hchip.warn .dot{background:var(--err)}
+.btn-ghost{background:none;border:1px solid var(--line);color:var(--muted);font-size:10px;letter-spacing:.22em;font-weight:500;padding:8px 16px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:.15s}
+.btn-ghost:hover{border-color:var(--brass-dim);color:var(--brass-hi)}
+
+/* ============ kerangka utama ============ */
+main{display:grid;grid-template-columns:346px minmax(0,1fr);min-height:calc(100vh - 64px)}
+aside{border-right:1px solid var(--line);padding:20px 22px 30px;overflow-y:auto;position:sticky;top:0;max-height:calc(100vh - 64px)}
+.stage{display:flex;flex-direction:column;padding:20px 26px 16px;min-width:0;user-select:none}
+
+/* ============ panel kontrol ============ */
+section{margin-bottom:26px}
+.sec-head{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--line2);padding-bottom:8px;margin-bottom:14px}
+.sec-num{font-family:var(--f-m);color:var(--brass);font-size:10px}
+.sec-title{font-size:11px;letter-spacing:.28em;font-weight:500;color:var(--ink)}
+
+/* dropzone — sudut art deco via 8 gradien */
+.drop{position:relative;border:1px dashed #2c2c22;background-color:var(--bg2);padding:24px 14px;text-align:center;cursor:pointer;transition:border-color .2s,background-color .2s;
+  background-image:
+   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim)),
+   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim)),
+   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim)),
+   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim));
+  background-repeat:no-repeat;
+  background-size:14px 1px,1px 14px,14px 1px,1px 14px,14px 1px,1px 14px,14px 1px,1px 14px;
+  background-position:left top,left top,right top,right top,left bottom,left bottom,right bottom,right bottom}
+.drop:hover,.drop.over{border-color:var(--brass-dim);background-color:#0c0c09}
+.drop svg{width:22px;height:16px;color:var(--brass);margin:0 auto}
+.drop-title{font-size:12.5px;letter-spacing:.16em;font-weight:400;margin-top:10px;color:var(--ink)}
+.drop-sub{font-family:var(--f-m);font-size:9px;color:var(--muted);margin-top:6px;letter-spacing:.1em;line-height:1.7}
+#fileMeta{font-family:var(--f-m);font-size:9px;color:var(--brass);letter-spacing:.08em;margin-top:10px;text-align:center;min-height:12px;word-break:break-all}
+
+.prow{display:flex;justify-content:space-between;align-items:center;padding:7px 2px;border-bottom:1px dashed var(--line2);font-size:10.5px;letter-spacing:.14em;color:var(--ink)}
+.pstate{font-family:var(--f-m);font-size:9px;letter-spacing:.08em;color:var(--faint)}
+.pstate.ok{color:var(--brass)}
+.pstate.fail{color:var(--err)}
+.row-tools{display:flex;gap:8px;margin-top:12px}
+select{appearance:none;-webkit-appearance:none;background:var(--bg2);border:1px solid var(--line);color:var(--ink);font-family:var(--f-m);font-size:10px;letter-spacing:.1em;padding:8px 10px;cursor:pointer;flex:1}
+select:focus{outline:none;border-color:var(--brass-dim)}
+.btn-mini{background:none;border:1px solid var(--line);color:var(--muted);cursor:pointer;padding:8px 12px;display:flex;align-items:center;gap:6px;transition:.15s}
+.btn-mini:hover{border-color:var(--brass-dim);color:var(--brass-hi)}
+.btn-mini:disabled{opacity:.35;pointer-events:none}
+
+/* slider — ibarat berlian kuningan */
+.ctl{margin-bottom:15px}
+.ctl-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1px}
+.ctl-top label{font-size:10px;letter-spacing:.20em;color:var(--muted);font-weight:500}
+.ctl-top output{font-family:var(--f-m);font-size:10.5px;color:var(--brass);font-variant-numeric:tabular-nums}
+.ctl .hint{font-size:9px;color:var(--faint);letter-spacing:.06em;margin-top:1px}
+input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:24px;width:100%;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;background:var(--brass);border:1px solid #0b0b09;margin-top:-4.5px;transform:rotate(45deg)}
+input[type=range]::-webkit-slider-thumb:hover{background:var(--brass-hi)}
+input[type=range]::-moz-range-track{height:2px;background:var(--line)}
+input[type=range]::-moz-range-thumb{width:11px;height:11px;background:var(--brass);border:1px solid #0b0b09;border-radius:0}
+
+.seg{display:flex;border:1px solid var(--line)}
+.seg button{flex:1;background:none;border:0;color:var(--muted);font-size:10px;letter-spacing:.22em;font-weight:500;padding:9px 0;cursor:pointer;transition:.15s}
+.seg button.on{background:var(--brass);color:#161307;font-weight:600}
+.mat-hint{font-size:9px;color:var(--faint);letter-spacing:.08em;margin-top:8px;line-height:1.6}
+
+.numrow{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.numrow label{font-size:10px;letter-spacing:.20em;color:var(--muted);font-weight:500;flex:1}
+input[type=number]{width:82px;background:var(--bg2);border:1px solid var(--line);color:var(--brass);font-family:var(--f-m);font-size:11px;padding:7px 9px;text-align:right}
+input[type=number]:focus{outline:none;border-color:var(--brass-dim)}
+.numrow .unit{font-family:var(--f-m);font-size:9px;color:var(--faint)}
+.chk{display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:16px}
+.chk input{display:none}
+.chk .box{width:13px;height:13px;border:1px solid var(--line);flex:none;transition:.15s;position:relative}
+.chk input:checked + .box{background:var(--brass);border-color:var(--brass)}
+.chk .lbl{font-size:10px;letter-spacing:.20em;color:var(--muted);font-weight:500}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:12px 0;font-size:11px;letter-spacing:.24em;font-weight:500;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink);transition:.15s}
+.btn:hover{border-color:var(--brass-dim);color:var(--brass-hi)}
+.btn.primary{background:var(--brass);border-color:var(--brass);color:#161307;font-weight:600}
+.btn.primary:hover{background:var(--brass-hi)}
+.btn:disabled{opacity:.3;pointer-events:none}
+.btn + .btn{margin-top:9px}
+
+/* ============ panggung ============ */
+.tabs{display:flex;gap:26px;border-bottom:1px solid var(--line);padding-left:4px}
+.tabs button{background:none;border:0;color:var(--muted);font-size:11px;letter-spacing:.26em;font-weight:500;padding:10px 2px 12px;cursor:pointer;position:relative;transition:color .15s}
+.tabs button:hover{color:var(--ink)}
+.tabs button.on{color:var(--ink)}
+.tabs button.on::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--brass)}
+.viewport{position:relative;flex:1;display:flex;align-items:center;justify-content:center;min-height:clamp(360px,54vh,760px);background:var(--bg2);margin-top:16px;padding:20px;
+  background-image:radial-gradient(#15140e 1px,transparent 1px);background-size:22px 22px}
+.viewport::before,.viewport::after{content:'';position:absolute;width:18px;height:18px;border:1px solid var(--brass-dim);z-index:3;pointer-events:none}
+.viewport::before{top:8px;left:8px;border-right:0;border-bottom:0}
+.viewport::after{bottom:8px;right:8px;border-left:0;border-top:0}
+.view{display:none;width:100%;height:100%;align-items:center;justify-content:center;position:relative}
+.view.on{display:flex}
+.view canvas{display:block;max-width:100%;max-height:56vh;width:auto;height:auto;touch-action:none}
+#cv-relief{cursor:grab}
+#cv-relief:active{cursor:grabbing}
+#cv-compare{cursor:col-resize}
+.vtag{position:absolute;font-family:var(--f-m);font-size:9px;letter-spacing:.3em;color:var(--muted);border:1px solid var(--line2);padding:4px 9px;background:rgba(11,11,9,.7)}
+.vtag.l{left:14px;top:12px}.vtag.r{right:14px;top:12px;color:var(--brass)}
+
+#empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:2;cursor:pointer}
+#empty .sun{width:110px;height:76px;color:var(--brass-dim);animation:pulse 4.5s ease-in-out infinite}
+#empty h2{font-family:var(--f-d);font-size:15px;letter-spacing:.34em;color:var(--muted);font-weight:400}
+#empty p{font-family:var(--f-m);font-size:9px;letter-spacing:.2em;color:var(--faint);text-align:center;line-height:2}
+@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+
+#proc{position:absolute;inset:0;background:rgba(7,7,6,.85);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:6}
+#proc.on{display:flex}
+#proc .sun{width:48px;height:34px;color:var(--brass);animation:rot 4s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+#procLabel{font-family:var(--f-m);font-size:10px;letter-spacing:.34em;color:var(--muted)}
+
+#tip{position:absolute;pointer-events:none;background:#15130b;border:1px solid var(--brass-dim);padding:5px 10px;font-family:var(--f-m);font-size:9.5px;color:var(--ink);letter-spacing:.06em;white-space:nowrap;display:none;z-index:8}
+
+#viewHint{font-family:var(--f-m);font-size:9px;letter-spacing:.22em;color:var(--faint);padding:10px 2px 0;min-height:24px}
+#readout{display:flex;flex-wrap:wrap;gap:8px 24px;padding:9px 2px;font-family:var(--f-m);font-size:9.5px;color:var(--muted);letter-spacing:.1em;min-height:30px}
+#readout b{color:var(--ink);font-weight:400}
+#readout .acc{color:var(--brass)}
+#log{height:108px;overflow-y:auto;border-top:1px solid var(--line2);padding-top:8px;font-family:var(--f-m);font-size:9.5px;line-height:1.75;color:var(--muted);letter-spacing:.04em}
+#log .t{color:#54503a}
+#log .k{color:var(--brass)}
+#log .e{color:var(--err)}
+
+/* ============ modal protokol ============ */
+#modal{position:fixed;inset:0;background:rgba(5,5,4,.82);display:none;align-items:center;justify-content:center;z-index:50;padding:28px}
+#modal.on{display:flex}
+.doc{max-width:840px;width:100%;max-height:88vh;display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--line);position:relative;
+  background-image:
+   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim)),
+   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim)),
+   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim)),
+   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim));
+  background-repeat:no-repeat;
+  background-size:16px 1px,1px 16px,16px 1px,1px 16px,16px 1px,1px 16px,16px 1px,1px 16px;
+  background-position:left top,left top,right top,right top,left bottom,left bottom,right bottom,right bottom;
+  background-color:var(--bg)}
+.doc-head{display:flex;align-items:center;gap:14px;padding:18px 26px;border-bottom:1px solid var(--line2)}
+.doc-head .sun{width:30px;height:21px;color:var(--brass)}
+.doc-head h2{font-family:var(--f-d);font-size:15px;letter-spacing:.28em;font-weight:400;flex:1}
+.doc-body{overflow-y:auto;padding:26px 34px 34px;font-size:12.5px;line-height:1.85;color:#cfc9b4}
+.doc-body h3{font-size:11px;letter-spacing:.3em;color:var(--brass);font-weight:500;margin:22px 0 8px}
+.doc-body h3:first-child{margin-top:0}
+.doc-body p{margin-bottom:8px}
+.doc-body ul{list-style:none;margin:4px 0 10px}
+.doc-body li{padding-left:20px;position:relative;margin-bottom:5px}
+.doc-body li::before{content:'';position:absolute;left:2px;top:.72em;width:7px;height:7px;transform:rotate(45deg);border:1px solid var(--brass-dim)}
+.doc-foot{display:flex;gap:10px;padding:16px 26px;border-top:1px solid var(--line2)}
+
+/* ============ toast & footer ============ */
+#toasts{position:fixed;right:22px;bottom:22px;z-index:60;display:flex;flex-direction:column;gap:8px}
+.toast{background:#15130b;border:1px solid var(--brass-dim);border-left:3px solid var(--brass);padding:11px 18px;font-size:11px;letter-spacing:.12em;color:var(--ink);max-width:340px;animation:tin .25s ease}
+.toast.out{opacity:0;transition:opacity .4s}
+@keyframes tin{from{transform:translateX(24px);opacity:0}}
+footer{border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-content:space-between;gap:20px;font-family:var(--f-m);font-size:8.5px;color:var(--faint);letter-spacing:.18em}
+
+@media(max-width:980px){
+  main{grid-template-columns:1fr}
+  aside{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--line)}
+  .viewport{min-height:300px}
+  .view canvas{max-height:48vh}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <svg class="sun" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <path d="M8 42 A24 24 0 0 1 56 42"/><path d="M18 42 A14 14 0 0 1 46 42"/>
+      <line x1="32" y1="22" x2="32" y2="13"/><line x1="43" y1="23" x2="46" y2="17.8"/><line x1="21" y1="23" x2="18" y2="17.8"/>
+      <line x1="49.3" y1="32" x2="54.5" y2="29"/><line x1="14.7" y1="32" x2="9.5" y2="29"/>
+      <line x1="0" y1="42" x2="64" y2="42"/>
+    </svg>
+    <div>
+      <div class="wordmark">BASRELIEF</div>
+      <div class="tagline">ATELIER DEPTH MAP · CNC &amp; VECTRIC ASPIRE</div>
+    </div>
+  </div>
+  <div class="hspace"></div>
+  <span class="hchip" id="modelsChip"><span class="dot"></span><span id="modelsTxt">MODEL — MENUNGGU</span></span>
+  <button class="btn-ghost" id="btn-protocol"><i data-lucide="info"></i>PROTOKOL</button>
+</header>
+
+<main>
+  <!-- ============ rel kontrol ============ -->
+  <aside>
+
+    <section>
+      <div class="sec-head"><span class="sec-num">01</span><span class="sec-title">SUMBER</span></div>
+      <div class="drop" id="drop">
+        <svg viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M8 42 A24 24 0 0 1 56 42"/><path d="M18 42 A14 14 0 0 1 46 42"/>
+          <line x1="32" y1="22" x2="32" y2="13"/><line x1="43" y1="23" x2="46" y2="17.8"/><line x1="21" y1="23" x2="18" y2="17.8"/>
+          <line x1="49.3" y1="32" x2="54.5" y2="29"/><line x1="14.7" y1="32" x2="9.5" y2="29"/>
+          <line x1="0" y1="42" x2="64" y2="42"/>
+        </svg>
+        <div class="drop-title">JATUHKAN FOTO PORTRAIT</div>
+        <div class="drop-sub">klik untuk memilih · tarik-lepas · tempel (Ctrl+V)<br>foto dipecah sepenuhnya secara lokal</div>
+        <div id="fileMeta"></div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" hidden>
+    </section>
+
+    <section>
+      <div class="sec-head"><span class="sec-num">02</span><span class="sec-title">ANALISIS</span></div>
+      <div class="prow"><span>SEGMENTASI SUBJEK</span><span class="pstate" id="chip-seg">—</span></div>
+      <div class="prow"><span>LANDMARK WAJAH</span><span class="pstate" id="chip-lm">—</span></div>
+      <div class="row-tools">
+        <select id="resSel" title="resolusi kerja">
+          <option value="512">RESOLUSI 512</option>
+          <option value="1024" selected>RESOLUSI 1024</option>
+          <option value="1536">RESOLUSI 1536</option>
+        </select>
+        <button class="btn-mini" id="btn-rerun" title="proses ulang"><i data-lucide="rotate-cw"></i>ULANG</button>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-head"><span class="sec-num">03</span><span class="sec-title">PEMAHATAN</span></div>
+      <div class="ctl">
+        <div class="ctl-top"><label for="c-zAmp">AMPLIFIKASI Z</label><output></output></div>
+        <input type="range" id="c-zAmp" min="0.5" max="2.5" step="0.05" value="1.0">
+        <div class="hint">skala kedalaman agresif — permukaan tetap membulat</div>
+      </div>
+      <div class="ctl">
+        <div class="ctl-top"><label for="c-tension">KONTRAS PAHATAN</label><output></output></div>
+        <input type="range" id="c-tension" min="0" max="1" step="0.01" value="0.45">
+        <div class="hint">kurva-S pemisah landmark wajah</div>
+      </div>
+      <div class="ctl">
+        <div class="ctl-top"><label for="c-rampW">RAMP KEMUNCULAN</label><output></output></div>
+        <input type="range" id="c-rampW" min="20" max="80" step="1" value="44">
+        <div class="hint">transisi ke hitam — 30–50 px ideal (protokol)</div>
+      </div>
+      <div class="ctl">
+        <div class="ctl-top"><label for="c-fillet">FILET PERMUKAAN</label><output></output></div>
+        <input type="range" id="c-fillet" min="0" max="14" step="1" value="5">
+      </div>
+      <div class="ctl">
+        <div class="ctl-top"><label for="c-hairL">ELEVASI RAMBUT &amp; BADAN</label><output></output></div>
+        <input type="range" id="c-hairL" min="0.10" max="0.60" step="0.01" value="0.34">
+      </div>
+      <div class="ctl">
+        <div class="ctl-top"><label for="c-detW">DETAIL MIKRO</label><output></output></div>
+        <input type="range" id="c-detW" min="0" max="1" step="0.01" value="0.30">
+        <div class="hint">relief halus kelopak &amp; bibir dari bayangan asli</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-head"><span class="sec-num">04</span><span class="sec-title">MATERI RELIEF</span></div>
+      <div class="seg">
+        <button data-mat="brass" class="on">KUNINGAN</button>
+        <button data-mat="stone">BATU</button>
+      </div>
+      <div class="mat-hint">tampilan pratinjau saja — seret pada kanvas relief untuk memutar arah cahaya dan memeriksa kelengkungan lereng.</div>
+    </section>
+
+    <section>
+      <div class="sec-head"><span class="sec-num">05</span><span class="sec-title">EKSPOR</span></div>
+      <div class="numrow">
+        <label for="c-mm">KEDALAMAN PEMAHATAN</label>
+        <input type="number" id="c-mm" min="1" max="100" step="0.5" value="10"><span class="unit">mm</span>
+      </div>
+      <label class="chk">
+        <input type="checkbox" id="c-invert"><span class="box"></span><span class="lbl">INVERSI KEDALAMAN</span>
+      </label>
+      <button class="btn primary" id="btn-exp16" disabled><i data-lucide="download"></i>PNG 16-BIT · ASPIRE</button>
+      <button class="btn" id="btn-exp8" disabled><i data-lucide="download"></i>PNG 8-BIT</button>
+      <button class="btn" id="btn-expRelief" disabled><i data-lucide="layers"></i>RENDER RELIEF</button>
+    </section>
+
+  </aside>
+
+  <!-- ============ panggung ============ -->
+  <div class="stage">
+    <nav class="tabs">
+      <button data-view="depth" class="on">DEPTH MAP</button>
+      <button data-view="relief">RELIEF</button>
+      <button data-view="compare">COMPARE</button>
+    </nav>
+
+    <div class="viewport" id="viewport">
+      <div id="empty">
+        <svg class="sun" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M8 42 A24 24 0 0 1 56 42"/><path d="M18 42 A14 14 0 0 1 46 42"/>
+          <line x1="32" y1="22" x2="32" y2="13"/><line x1="43" y1="23" x2="46" y2="17.8"/><line x1="21" y1="23" x2="18" y2="17.8"/>
+          <line x1="49.3" y1="32" x2="54.5" y2="29"/><line x1="14.7" y1="32" x2="9.5" y2="29"/>
+          <line x1="0" y1="42" x2="64" y2="42"/>
+        </svg>
+        <h2>MENUNGGU SUBJEK</h2>
+        <p>SEMUAKAN KOMPUTASI DI PERAMBAN<br>TIDAK ADA GAMBAR YANG DIKIRIM KE SERVER</p>
+      </div>
+
+      <div class="view on" data-view="depth"><canvas id="cv-depth"></canvas></div>
+      <div class="view" data-view="relief"><canvas id="cv-relief"></canvas></div>
+      <div class="view" data-view="compare">
+        <canvas id="cv-compare"></canvas>
+        <span class="vtag l">SUMBER</span><span class="vtag r">DEPTH</span>
+      </div>
+
+      <div id="proc">
+        <svg class="sun" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M8 42 A24 24 0 0 1 56 42"/><path d="M18 42 A14 14 0 0 1 46 42"/>
+          <line x1="32" y1="22" x2="32" y2="13"/><line x1="43" y1="23" x2="46" y2="17.8"/><line x1="21" y1="23" x2="18" y2="17.8"/>
+          <line x1="49.3" y1="32" x2="54.5" y2="29"/><line x1="14.7" y1="32" x2="9.5" y2="29"/>
+          <line x1="0" y1="42" x2="64" y2="42"/>
+        </svg>
+        <div id="procLabel">MEMPROSES…</div>
+      </div>
+
+      <div id="tip"></div>
+    </div>
+
+    <div id="viewHint"></div>
+    <div id="readout"><span>menunggu sumber…</span></div>
+    <div id="log"></div>
+  </div>
+</main>
+
+<!-- ============ modal protokol ============ -->
+<div id="modal">
+  <div class="doc">
+    <div class="doc-head">
+      <svg class="sun" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <path d="M8 42 A24 24 0 0 1 56 42"/><path d="M18 42 A14 14 0 0 1 46 42"/>
+        <line x1="32" y1="22" x2="32" y2="13"/><line x1="43" y1="23" x2="46" y2="17.8"/><line x1="21" y1="23" x2="18" y2="17.8"/>
+        <line x1="49.3" y1="32" x2="54.5" y2="29"/><line x1="14.7" y1="32" x2="9.5" y2="29"/>
+        <line x1="0" y1="42" x2="64" y2="42"/>
+      </svg>
+      <h2>THE CARVING PROTOCOL</h2>
+      <button class="btn-ghost" id="btn-close-modal"><i data-lucide="x"></i>TUTUP</button>
+    </div>
+    <div class="doc-body" id="docBody"></div>
+    <div class="doc-foot">
+      <button class="btn primary" id="btn-copy" style="width:auto;padding:11px 26px"><i data-lucide="copy"></i>SALIN PROTOKOL</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<footer>
+  <span>BASRELIEF — SEGMENTASI + 468 LANDMARK → RELIEF ANATOMIS · SEPENUHNYA LOKAL</span>
+  <span>PNG GRAYSCALE 16-BIT · VECTRIC ASPIRE / ARTCAM</span>
+</footer>
+
+<script>
+'use strict';
+/* ================================================================
+   BASRELIEF — generator depth map bas-relief untuk CNC
+   Pipeline: segmentasi subjek → landmark wajah → prior anatomis
+   → ramp S-curve → fillet → kurva Z → ekspor PNG 16-bit.
+   ================================================================ */
+
+/* ---------- utilitas dasar ---------- */
+const $  = (s,el=document)=>el.querySelector(s);
+const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const lerp=(a,b,t)=>a+(b-a)*t;
+const ss=t=>{t=clamp(t,0,1);return t*t*t*(t*(t*6-15)+10);}; // smootherstep (kurva-S C2)
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mkCanvas=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;};
+
+let SCR=null;
+const getScr=n=>{if(!SCR||SCR.length<n)SCR=new Float32Array(n);return SCR;};
+
+/* blur kotak separabel — 3 tapisan ≈ gauss, O(n) per tapis */
+function boxH(src,dst,w,h,r){
+  const inv=1/(2*r+1);
+  for(let y=0;y<h;y++){
+    const o=y*w; let acc=0;
+    for(let k=-r;k<=r;k++)acc+=src[o+clamp(k,0,w-1)];
+    for(let x=0;x<w;x++){
+      dst[o+x]=acc*inv;
+      acc+=src[o+clamp(x+r+1,0,w-1)]-src[o+clamp(x-r,0,w-1)];
+    }
+  }
+}
+function boxV(src,dst,w,h,r){
+  const inv=1/(2*r+1);
+  for(let x=0;x<w;x++){
+    let acc=0;
+    for(let k=-r;k<=r;k++)acc+=src[clamp(k,0,h-1)*w+x];
+    for(let y=0;y<h;y++){
+      dst[y*w+x]=acc*inv;
+      acc+=src[clamp(y+r+1,0,h-1)*w+x]-src[clamp(y-r,0,h-1)*w+x];
+    }
+  }
+}
+function blur(f,w,h,r,passes=3){
+  r=Math.round(r); if(r<1)return f;
+  const scr=getScr(w*h);
+  for(let p=0;p<passes;p++){boxH(f,scr,w,h,r);boxV(scr,f,w,h,r);}
+  return f;
+}
+
+/* transformasi jarak chamfer 3-4 — untuk ramp kemunculan */
+function distField(bin,w,h){
+  const n=w*h,d=new Float32Array(n);
+  for(let i=0;i<n;i++)d[i]=bin[i]?1e9:0;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const i=y*w+x; let v=d[i]; if(v===0)continue;
+    if(x>0&&d[i-1]+3<v)v=d[i-1]+3;
+    if(y>0){const u=i-w;
+      if(d[u]+3<v)v=d[u]+3;
+      if(x>0&&d[u-1]+4<v)v=d[u-1]+4;
+      if(x<w-1&&d[u+1]+4<v)v=d[u+1]+4;}
+    d[i]=v;
+  }
+  for(let y=h-1;y>=0;y--)for(let x=w-1;x>=0;x--){
+    const i=y*w+x; let v=d[i]; if(v===0)continue;
+    if(x<w-1&&d[i+1]+3<v)v=d[i+1]+3;
+    if(y<h-1){const dn=i+w;
+      if(d[dn]+3<v)v=d[dn]+3;
+      if(x<w-1&&d[dn+1]+4<v)v=d[dn+1]+4;
+      if(x>0&&d[dn-1]+4<v)v=d[dn-1]+4;}
+    d[i]=v;
+  }
+  for(let i=0;i<n;i++)d[i]/=3;
+  return d;
+}
+
+/* isi lubang segmen: flood-fill latar dari tepi kanvas */
+function fillHoles(bin,w,h){
+  const n=w*h,seen=new Uint8Array(n),q=new Int32Array(n);let qh=0,qt=0;
+  const push=i=>{if(!bin[i]&&!seen[i]){seen[i]=1;q[qt++]=i;}};
+  for(let x=0;x<w;x++){push(x);push((h-1)*w+x);}
+  for(let y=0;y<h;y++){push(y*w);push(y*w+w-1);}
+  while(qh<qt){
+    const i=q[qh++],x=i%w,y=(i/w)|0;
+    if(x>0)push(i-1); if(x<w-1)push(i+1); if(y>0)push(i-w); if(y<h-1)push(i+w);
+  }
+  for(let i=0;i<n;i++)if(!bin[i]&&!seen[i])bin[i]=1;
+}
+
+/* rasterisasi poligon (oval wajah) — scanline even-odd */
+function fillPoly(poly,w,h){
+  const m=new Uint8Array(w*h),xs=[];
+  let y0=1e9,y1=-1e9;
+  for(const p of poly){y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1]);}
+  y0=Math.max(0,Math.floor(y0));y1=Math.min(h-1,Math.ceil(y1));
+  for(let y=y0;y<=y1;y++){
+    xs.length=0;
+    for(let e=0;e<poly.length;e++){
+      const a=poly[e],b=poly[(e+1)%poly.length];
+      if((a[1]<=y&&b[1]>y)||(b[1]<=y&&a[1]>y))
+        xs.push(a[0]+(y-a[1])/(b[1]-a[1])*(b[0]-a[0]));
+    }
+    xs.sort((p,q)=>p-q);
+    for(let k=0;k+1<xs.length;k+=2){
+      const xa=Math.max(0,Math.ceil(xs[k])),xb=Math.min(w-1,Math.floor(xs[k+1]));
+      for(let x=xa;x<=xb;x++)m[y*w+x]=1;
+    }
+  }
+  return m;
+}
+
+/* splat gauss aditif — membangun bukit volumetrik */
+function splat(f,w,h,cx,cy,amp,sig){
+  const r=Math.max(2,Math.ceil(sig*3)),s2=2*sig*sig;
+  const x0=Math.max(0,Math.floor(cx-r)),x1=Math.min(w-1,Math.ceil(cx+r));
+  const y0=Math.max(0,Math.floor(cy-r)),y1=Math.min(h-1,Math.ceil(cy+r));
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+    const dx=x-cx,dy=y-cy;
+    f[y*w+x]+=amp*Math.exp(-(dx*dx+dy*dy)/s2);
+  }
+}
+
+/* ---------- encoder PNG grayscale 16-bit (presisi untuk Aspire) ---------- */
+const CRC_T=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c;}return t;})();
+function crc32(u8){let c=~0;for(let i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&255]^(c>>>8);return(~c)>>>0;}
+function pngChunk(type,data){
+  const b=new Uint8Array(12+data.length),dv=new DataView(b.buffer);
+  dv.setUint32(0,data.length);
+  for(let i=0;i<4;i++)b[4+i]=type.charCodeAt(i);
+  b.set(data,8);
+  dv.setUint32(8+data.length,crc32(b.subarray(4,8+data.length)));
+  return b;
+}
+function encodeGrayPNG16(w,h,gray16){
+  const sig=Uint8Array.of(137,80,78,71,13,10,26,10);
+  const ihdr=new Uint8Array(13),dv=new DataView(ihdr.buffer);
+  dv.setUint32(0,w);dv.setUint32(4,h);
+  ihdr[8]=16;ihdr[9]=0;ihdr[10]=0;ihdr[11]=0;ihdr[12]=0; // bitDepth 16, grayscale
+  const stride=w*2,raw=new Uint8Array((stride+1)*h);
+  for(let y=0;y<h;y++){
+    const o=y*(stride+1);raw[o]=0; // filter 0
+    for(let x=0;x<w;x++){
+      const v=gray16[y*w+x];
+      raw[o+1+x*2]=(v>>>8)&255;raw[o+2+x*2]=v&255;
+    }
+  }
+  const comp=pako.deflate(raw,{level:6});
+  return new Blob([sig,pngChunk('IHDR',ihdr),pngChunk('IDAT',comp),pngChunk('IEND',new Uint8Array(0))],{type:'image/png'});
+}
+
+/* ---------- log, toast, status ---------- */
+const T0=performance.now();
+function log(html){
+  const el=$('#log'),div=document.createElement('div');
+  const t=((performance.now()-T0)/1000).toFixed(2).padStart(6,' ');
+  div.innerHTML=`<span class="t">[${t}s]</span> ${html}`;
+  el.appendChild(div);el.scrollTop=1e6;
+}
+function toast(msg){
+  const t=document.createElement('div');t.className='toast';t.textContent=msg;
+  $('#toasts').appendChild(t);
+  setTimeout(()=>t.classList.add('out'),2900);setTimeout(()=>t.remove(),3400);
+}
+function setChip(id,txt,cls){const e=$('#chip-'+id);e.textContent=txt;e.className='pstate '+(cls||'');}
+function setModels(txt,cls){$('#modelsTxt').textContent=txt;$('#modelsChip').className='hchip '+(cls||'');}
+function setProc(s){$('#procLabel').textContent=s;}
+
+/* ---------- MediaPipe: dimuat malas dari CDN, eksekusi lokal (WASM) ---------- */
+const MP_MESH='https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619';
+const MP_SEG ='https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747';
+let segPipe=null,meshPipe=null,mpState='idle',mpPromise=null;
+
+function loadScript(src,timeout=25000){
+  return new Promise((res,rej)=>{
+    const s=document.createElement('script');s.src=src;s.async=true;
+    const to=setTimeout(()=>{s.remove();rej(new Error('timeout'));},timeout);
+    s.onload=()=>{clearTimeout(to);res();};
+    s.onerror=()=>{clearTimeout(to);rej(new Error('network'));};
+    document.head.appendChild(s);
+  });
+}
+async function ensureModels(){
+  if(mpState==='ready')return true;
+  if(mpState==='loading')return await mpPromise;
+  mpState='loading';setModels('MODEL — MEMUAT','warn');
+  log('MODEL — memuat <span class="k">mediapipe wasm</span> dari CDN…');
+  mpPromise=(async()=>{
+    try{
+      await loadScript(MP_SEG+'/selfie_segmentation.js');
+      await loadScript(MP_MESH+'/face_mesh.js');
+      segPipe=new SelfieSegmentation({locateFile:f=>`${MP_SEG}/${f}`});
+      segPipe.setOptions({model:'general'});
+      try{await segPipe.initialize();}catch(e){}
+      meshPipe=new FaceMesh({locateFile:f=>`${MP_MESH}/${f}`});
+      meshPipe.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:0.35,minTrackingConfidence:0.35});
+      try{await meshPipe.initialize();}catch(e){}
+      mpState='ready';setModels('MODEL — SIAP','ok');
+      log('MODEL — <span class="k">siap</span> · analisis berjalan sepenuhnya di peramban');
+      return true;
+    }catch(e){
+      mpState='failed';setModels('MODEL — OFFLINE','warn');
+      log('MODEL — <span class="e">gagal dimuat</span>, beralih ke mode bayangan');
+      toast('Model analisis gagal dimuat — mode bayangan aktif');
+      return false;
+    }
+  })();
+  return await mpPromise;
+}
+function mpSend(pipe,canvas){
+  return new Promise(resolve=>{
+    let got=null;
+    pipe.onResults(r=>{got=r;});
+    const finish=()=>resolve(got);
+    pipe.send({image:canvas}).then(()=>{
+      const t0=performance.now();
+      (function poll(){
+        if(got||performance.now()-t0>4000)return finish();
+        setTimeout(poll,30);
+      })();
+    }).catch(finish);
+    setTimeout(finish,15000);
+  });
+}
+
+/* ---------- konstanta landmark (mesh wajah kanonik) ---------- */
+const OVAL_IDX=[10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109];
+/* hierarki kedalaman sesuai protokol: hidung paling tinggi → … → rahang rendah */
+const GROUPS=[
+ {idx:[1,4,19,94],                                   w:1.00, s:0.075}, // ujung hidung — puncak
+ {idx:[168,6,197,195,5],                             w:0.86, s:0.070}, // batang hidung
+ {idx:[98,327,102,331,64,294,219,439],               w:0.66, s:0.052}, // cuping hidung
+ {idx:[9,168,107,336,55,285,105,334,46,276,70,300,63,293,66,296,53,283,52,282], w:0.80, s:0.070}, // tulang alis
+ {idx:[10,151,109,338,67,297,103,332],               w:0.74, s:0.280}, // kubah dahi — lebar & membulat
+ {idx:[50,280,205,425,234,454,93,323,116,345],       w:0.60, s:0.120}, // tulang pipi
+ {idx:[159,145,386,374,33,133,362,263],              w:0.46, s:0.050}, // rongga mata — agak cekung
+ {idx:[61,291,0,17,13,14,82,312,37,267,84,314],      w:0.58, s:0.058}, // bibir
+ {idx:[164],                                         w:0.62, s:0.035}, // philtrum
+ {idx:[152,175,199,18,148,377],                      w:0.52, s:0.085}, // dagu
+ {idx:[172,136,150,149,176,400,378,379,365,397,288,361,323,356,389,251,284,332,297,338,58,132], w:0.34, s:0.080}, // garis rahang
+];
+const IRIS=[468,473];
+
+/* ---------- state global ---------- */
+let srcImg=null,srcName='',A=null,D=null,P=null;
+let view='depth',analyzing=false,running=false;
+let az=-60,elev=32,mat='brass',reliefDirty=true,sweepId=0;
+let cmpX=0.5,cmpDrag=false,relDrag=false,lastPX=0,lastPY=0,reliefRAF=0,synthTimer=0;
+
+const depthCanvas=$('#cv-depth'),dctx=depthCanvas.getContext('2d');
+const reliefCanvas=$('#cv-relief'),rctx=reliefCanvas.getContext('2d');
+const cmpCanvas=$('#cv-compare'),cctx=cmpCanvas.getContext('2d');
+const MATS={
+  brass:{a:[0.80,0.58,0.26],sc:[1.00,0.93,0.70],sp:0.90},
+  stone:{a:[0.84,0.82,0.78],sc:[0.95,0.95,0.92],sp:0.10},
+};
+
+/* ================================================================
+   TAHAP A — ANALISIS (asinkron, di-cache; tidak bergantung slider)
+   ================================================================ */
+async function runAnalysis(){
+  if(!srcImg||running)return;
+  running=true;analyzing=true;
+  $('#btn-rerun').disabled=true;
+  $('#proc').classList.add('on');
+  const t0=performance.now();
+  setChip('seg','…');setChip('lm','…');
+
+  const long=parseInt($('#resSel').value,10);
+  const iw=srcImg.naturalWidth,ih=srcImg.naturalHeight;
+  const sc=Math.min(1,long/Math.max(iw,ih));
+  const w=Math.max(16,Math.round(iw*sc)),h=Math.max(16,Math.round(ih*sc));
+  const orig=mkCanvas(w,h);
+  const octx=orig.getContext('2d',{willReadFrequently:true});
+  octx.drawImage(srcImg,0,0,w,h);
+  const px=octx.getImageData(0,0,w,h).data,n=w*h;
+  const lum=new Float32Array(n);
+  for(let i=0;i<n;i++)lum[i]=(0.2126*px[i*4]+0.7152*px[i*4+1]+0.0722*px[i*4+2])/255;
+
+  log(`SUMBER — <span class="k">${esc(srcName)}</span> ${iw}×${ih} → kerja ${w}×${h}`);
+
+  const an={w,h,n,orig,lum,face:false,lms:null};
+  setProc('MEMUAT MODEL…');
+  const ok=await ensureModels();
+
+  /* --- segmentasi subjek --- */
+  setProc('SEGMENTASI SUBJEK…');
+  let segOK=false;
+  if(ok){
+    const r=await mpSend(segPipe,orig);
+    if(r&&r.segmentationMask){
+      const mc=mkCanvas(w,h),mx=mc.getContext('2d',{willReadFrequently:true});
+      mx.drawImage(r.segmentationMask,0,0,w,h);
+      const md=mx.getImageData(0,0,w,h).data;
+      const m=new Float32Array(n);let s=0;
+      for(let i=0;i<n;i++){const v=(md[i*4]/255)*(md[i*4+3]/255);m[i]=v;s+=v;}
+      const mean=s/n;
+      if(mean>0.02&&mean<0.985){
+        blur(m,w,h,2,2);
+        const bin=new Uint8Array(n);
+        for(let i=0;i<n;i++)bin[i]=m[i]>0.45?1:0;
+        fillHoles(bin,w,h);
+        const bf=new Float32Array(n);
+        for(let i=0;i<n;i++)bf[i]=bin[i];
+        blur(bf,w,h,2,2);
+        let cnt=0;
+        for(let i=0;i<n;i++){bin[i]=bf[i]>0.5?1:0;cnt+=bin[i];}
+        an.bin=bin;an.area=cnt/n;segOK=an.area>0.002;
+        if(segOK)log(`SEGMENTASI — subjek <span class="k">${(an.area*100).toFixed(1)}%</span> bingkai`);
+      }
+    }
+  }
+  if(!segOK){
+    fallbackSeg(an);
+    if(an.area<0.002){an.bin.fill(1);an.area=1;}
+    log('SEGMENTASI — <span class="e">tidak tersedia</span>, mode siluet');
+  }
+  setChip('seg',segOK?`SUBJEK ${(an.area*100).toFixed(0)}%`:'MODE SILUET',segOK?'ok':'fail');
+
+  an.maskSoft=new Float32Array(n);
+  for(let i=0;i<n;i++)an.maskSoft[i]=an.bin[i];
+  blur(an.maskSoft,w,h,2,2);
+
+  /* --- landmark wajah --- */
+  setProc('LANDMARK WAJAH…');
+  let faceOK=false;
+  if(ok){
+    const r=await mpSend(meshPipe,orig);
+    if(r&&r.multiFaceLandmarks&&r.multiFaceLandmarks.length){
+      an.lms=r.multiFaceLandmarks[0];an.face=true;faceOK=true;
+    }
+  }
+  if(faceOK){
+    buildFaceFields(an);
+    log(`LANDMARK — <span class="k">${an.lms.length} titik</span> · hierarki anatomis dibangun`);
+  }else{
+    setChip('lm','TIDAK TERDETEKSI','fail');
+    log('LANDMARK — <span class="e">wajah tidak terdeteksi</span>, relief berbasis bayangan');
+  }
+
+  setProc('MEMBANGUN RELIEF…');
+  an.dist=distField(an.bin,w,h);
+  buildDetail(an);
+  if(!an.face)buildFallbackBase(an);
+  an.time=performance.now()-t0;
+  A=an;
+
+  $('#proc').classList.remove('on');
+  $('#btn-rerun').disabled=false;
+  analyzing=false;running=false;
+}
+
+function fallbackSeg(an){
+  const {w,h,n,lum}=an;
+  const vals=[];
+  for(let x=0;x<w;x+=4){vals.push(lum[x],lum[(h-1)*w+x]);}
+  for(let y=0;y<h;y+=4){vals.push(lum[y*w],lum[y*w+w-1]);}
+  vals.sort((a,b)=>a-b);
+  const bg=vals[vals.length>>1];
+  const cx=w/2,cy=h*0.44,sg=Math.max(w,h)*0.40;
+  const m=new Float32Array(n);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const i=y*w+x,d=Math.abs(lum[i]-bg);
+    const dx=(x-cx)/sg,dy=(y-cy)/sg;
+    m[i]=clamp(d*2.2,0,1)*0.65+Math.exp(-(dx*dx+dy*dy)*0.5)*0.45;
+  }
+  blur(m,w,h,Math.max(3,Math.round(Math.min(w,h)*0.03)));
+  const bin=new Uint8Array(n);let cnt=0;
+  for(let i=0;i<n;i++){bin[i]=m[i]>0.5?1:0;cnt+=bin[i];}
+  fillHoles(bin,w,h);
+  an.bin=bin;an.area=cnt/n;
+}
+
+function buildFaceFields(an){
+  const {w,h,n,lms}=an;
+  const pt=i=>[lms[i].x*w,lms[i].y*h];
+  const fw=Math.hypot(lms[234].x-lms[454].x,lms[234].y-lms[454].y)*w;
+  an.faceW=Math.max(24,fw);
+
+  /* oval wajah — dibatasi bulu halus agar transisi wajah↔rambut panjang & membulat */
+  const poly=OVAL_IDX.map(pt);
+  const ovalHard=fillPoly(poly,w,h);
+  const oval=new Float32Array(n);
+  for(let i=0;i<n;i++)oval[i]=ovalHard[i];
+  blur(oval,w,h,Math.max(3,an.faceW*0.10));
+  an.oval=oval;
+
+  /* prior anatomis: splat bertingkat sesuai hierarki kedalaman protokol */
+  const prior=new Float32Array(n);
+  for(const g of GROUPS){
+    const sig=g.s*an.faceW;
+    for(const idx of g.idx){
+      if(idx<lms.length){const[cx,cy]=pt(idx);splat(prior,w,h,cx,cy,g.w,sig);}
+    }
+  }
+  if(lms.length>=478){
+    for(const idx of IRIS){const[cx,cy]=pt(idx);splat(prior,w,h,cx,cy,0.56,an.faceW*0.030);}
+  }
+  blur(prior,w,h,Math.max(2,an.faceW*0.085));
+
+  let mx=0;
+  for(let i=0;i<n;i++){prior[i]*=oval[i];if(oval[i]>0.3&&prior[i]>mx)mx=prior[i];}
+  const inv=mx>1e-5?1/mx:1;
+  for(let i=0;i<n;i++)prior[i]=Math.min(1,prior[i]*inv);
+  an.prior=prior;
+
+  /* kubah rambut/badan: satu massa volumetrik membulat, bukan datar */
+  const region=new Float32Array(n);
+  for(let i=0;i<n;i++)region[i]=an.bin[i]*(1-ovalHard[i]);
+  blur(region,w,h,Math.max(4,an.faceW*0.55));
+  let dm=0;for(let i=0;i<n;i++)if(region[i]>dm)dm=region[i];
+  const di=dm>1e-5?1/dm:1;
+  an.dome=new Float32Array(n);
+  for(let i=0;i<n;i++)an.dome[i]=region[i]*di;
+
+  setChip('lm',`${lms.length} TITIK · FW ${Math.round(an.faceW)}PX`,'ok');
+}
+
+function buildDetail(an){
+  const {w,h,n,lum}=an;
+  const fw=an.face?an.faceW:Math.min(w,h)*0.5;
+  const small=Float32Array.from(lum);
+  blur(small,w,h,Math.max(2,fw*0.035));
+  const big=Float32Array.from(lum);
+  blur(big,w,h,Math.max(6,fw*0.65));
+  an.detail=new Float32Array(n);
+  for(let i=0;i<n;i++)an.detail[i]=clamp(small[i]-big[i],-0.3,0.3);
+}
+
+function buildFallbackBase(an){
+  const {w,h,n}=an;
+  let dmx=0;for(let i=0;i<n;i++)if(an.dist[i]>dmx)dmx=an.dist[i];
+  const di=dmx>1?1/dmx:1;
+  const lb=Float32Array.from(an.lum);
+  blur(lb,w,h,Math.max(4,Math.round(Math.min(w,h)/18)));
+  let mn=1,mx=0;
+  for(let i=0;i<n;i++)if(an.bin[i]){if(lb[i]<mn)mn=lb[i];if(lb[i]>mx)mx=lb[i];}
+  const ri=(mx-mn)>0.05?1/(mx-mn):0;
+  an.fBase=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    const dome=ss(an.dist[i]*di);
+    const lumN=an.bin[i]?ss(clamp((lb[i]-mn)*ri,0,1)):0;
+    an.fBase[i]=(0.14+0.44*lumN+0.34*dome)*an.maskSoft[i];
+  }
+}
+
+/* ================================================================
+   TAHAP B — SINTESIS (sinkron, cepas; dipanggil tiap pergeseran slider)
+   ================================================================ */
+function readParams(){
+  return{
+    zAmp:+$('#c-zAmp').value,
+    tension:+$('#c-tension').value,
+    rampW:+$('#c-rampW').value,
+    fillet:Math.round(+$('#c-fillet').value),
+    hairL:+$('#c-hairL').value,
+    detW:+$('#c-detW').value,
+    mm:parseFloat($('#c-mm').value)||10,
+    invert:$('#c-invert').checked,
+  };
+}
+
+function synthesize(){
+  if(!A||!A.dist)return;
+  const t0=performance.now();
+  const {w,h,n,bin,dist,oval,detail}=A;
+  const p=readParams();P=p;
+  const depth=new Float32Array(n);
+
+  if(A.face){
+    /* Relief anatomis: lerp antara massa rambut/badan dan prior wajah,
+       plus detail mikro dari bayangan asli di dalam oval wajah. */
+    const detAmp=p.detW*0.5;
+    for(let i=0;i<n;i++){
+      const o=oval[i];
+      const mass=p.hairL*(0.80+0.40*A.dome[i]);
+      let v=mass*(1-o)+A.prior[i]*o;
+      v+=detAmp*detail[i]*o;
+      depth[i]=v;
+    }
+  }else{
+    const detAmp=p.detW*0.55;
+    for(let i=0;i<n;i++)depth[i]=A.fBase[i]+detAmp*detail[i]*A.maskSoft[i];
+  }
+
+  /* Ramp kemunculan ekstra-lebar: kurva-S dari transformasi jarak
+     + pelepasan ke hitam pada tepi kanvas. Tanpa dinding vertikal. */
+  const rw=p.rampW,brw=Math.max(1,rw*0.9);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const i=y*w+x;
+    depth[i]*=ss(dist[i]/rw)*ss(Math.min(x,y,w-1-x,h-1-y)/brw);
+  }
+
+  /* Fillet permukaan: blur gauss menjamin kelengkungan menerus (tanpa teras).
+     Diterapkan SETELAH ramp agar tepi ikut membulat. */
+  blur(depth,w,h,p.fillet,3);
+
+  /* Kurva Z: tension S + amplifikasi pangkat — monotonik & mulus,
+     jadi amplifikasi agresif tak pernah menghasilkan artefak Z-step. */
+  let mx=0;
+  for(let i=0;i<n;i++)if(depth[i]>mx)mx=depth[i];
+  const inv=mx>1e-6?1/mx:1,pe=1/p.zAmp,k=1-p.tension;
+  for(let i=0;i<n;i++){
+    let c=(depth[i]>0?depth[i]:0)*inv;
+    c=k*c+p.tension*ss(c);
+    c=Math.pow(c,pe);
+    depth[i]=bin[i]?c:0; /* latar: hitam murni */
+  }
+
+  D=depth;
+  A.synthMs=performance.now()-t0;
+  renderDepth();
+  reliefDirty=true;
+  updateReadout();
+  ['btn-exp16','btn-exp8','btn-expRelief'].forEach(id=>$('#'+id).disabled=false);
+  if(view==='compare')renderCompare();
+}
+
+function renderDepth(){
+  const {w,h,n}=A;
+  depthCanvas.width=w;depthCanvas.height=h;
+  const img=dctx.createImageData(w,h),d=img.data;
+  for(let i=0;i<n;i++){
+    const v=Math.round(D[i]*255);
+    d[i*4]=v;d[i*4+1]=v;d[i*4+2]=v;d[i*4+3]=255;
+  }
+  dctx.putImageData(img,0,0);
+}
+
+/* ---------- render relief — heightmap disinari (cahaya bisa diseret) ---------- */
+function renderRelief(){
+  reliefDirty=false;
+  if(!A||!D)return;
+  const w=A.w,h=A.h,p=P||readParams();
+  const rs=Math.min(1,820/Math.max(w,h));
+  const rw=Math.max(1,Math.round(w*rs)),rh=Math.max(1,Math.round(h*rs));
+  reliefCanvas.width=rw;reliefCanvas.height=rh;
+  const img=rctx.createImageData(rw,rh),dd=img.data;
+  const M=MATS[mat];
+  const la=az*Math.PI/180,le=elev*Math.PI/180;
+  const Lx=Math.sin(la)*Math.cos(le),Ly=-Math.cos(la)*Math.cos(le),Lz=Math.sin(le);
+  let Hx=Lx,Hy=Ly,Hz=Lz+1;
+  const hl=Math.sqrt(Hx*Hx+Hy*Hy+Hz*Hz);Hx/=hl;Hy/=hl;Hz/=hl;
+  const K=22*rs;
+  const ar=M.a[0],ag=M.a[1],ab=M.a[2],sr=M.sc[0],sg=M.sc[1],sb=M.sc[2],sp=M.sp;
+  let o=0;
+  for(let Y=0;Y<rh;Y++){
+    const sy=clamp(Math.round(Y/rs),1,h-2),rY=sy*w;
+    for(let X=0;X<rw;X++,o+=4){
+      const sx=clamp(Math.round(X/rs),1,w-2),i=rY+sx;
+      const z=D[i];
+      if(!A.bin[i]&&z<0.004){dd[o]=dd[o+1]=dd[o+2]=0;dd[o+3]=255;continue;}
+      const gx=(D[i+1]-D[i-1])*K,gy=(D[i+w]-D[i-w])*K;
+      const nx=-gx,ny=-gy;
+      const il=1/Math.sqrt(nx*nx+ny*ny+1),nz=il;
+      const ndl=(nx*il)*Lx+(ny*il)*Ly+nz*Lz;
+      const dif=ndl>0?ndl:0;
+      const ndh=(nx*il)*Hx+(ny*il)*Hy+nz*Hz;
+      let spec=0;
+      if(ndh>0){const s2=ndh*ndh,s4=s2*s2,s8=s4*s4,s16=s8*s8,s32=s16*s16;spec=s32*s16*sp;}
+      const kd=(0.14+0.92*dif)*(0.55+0.45*nz); /* cekung sedikit lebih gelap */
+      const R=ar*kd+spec*sr,G=ag*kd+spec*sg,B=ab*kd+spec*sb;
+      dd[o]=R>255?255:R;dd[o+1]=G>255?255:G;dd[o+2]=B>255?255:B;dd[o+3]=255;
+    }
+  }
+  rctx.putImageData(img,0,0);
+}
+function queueRelief(){
+  if(reliefRAF)return;
+  reliefRAF=requestAnimationFrame(()=>{reliefRAF=0;renderRelief();});
+}
+function stopSweep(){sweepId++;}
+function sweepLight(){
+  stopSweep();
+  const id=++sweepId,t0=performance.now(),dur=1700;
+  const a0=-375,a1=-60,e0=16,e1=elev;
+  (function step(){
+    if(id!==sweepId)return;
+    const t=clamp((performance.now()-t0)/dur,0,1),e=t*t*(3-2*t);
+    az=lerp(a0,a1,e);elev=lerp(e0,e1,e);
+    renderRelief();updateReadout();
+    if(t<1)requestAnimationFrame(step);
+  })();
+}
+
+/* ---------- compare: pembanding sumber ↔ depth ---------- */
+function renderCompare(){
+  if(!A||!D)return;
+  const {w,h}=A;
+  if(cmpCanvas.width!==w){cmpCanvas.width=w;cmpCanvas.height=h;}
+  cctx.drawImage(A.orig,0,0);
+  const x=Math.round(cmpX*w);
+  cctx.save();cctx.beginPath();cctx.rect(x,0,w-x,h);cctx.clip();
+  cctx.drawImage(depthCanvas,0,0);cctx.restore();
+  cctx.fillStyle='#c8a44e';
+  cctx.fillRect(x-1,0,2,h);
+  cctx.save();cctx.translate(x,h/2);cctx.rotate(Math.PI/4);cctx.fillRect(-6,-6,12,12);cctx.restore();
+}
+
+/* ---------- tampilan & pembacaan ---------- */
+const HINTS={
+  depth:'ARAHKAN KURSOR PADA KANVAS UNTUK MEMBACA NILAI Z',
+  relief:'SERET PADA KANVAS UNTUK MEMUTAR ARAH CAHAYA — PERIKSA KELENGKUNGAN LERENG',
+  compare:'SERET PEMBATAS UNTUK MEMBANDINGKAN SUMBER DENGAN DEPTH MAP',
+};
+function setView(v){
+  view=v;
+  $$('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
+  $$('.view').forEach(el=>el.classList.toggle('on',el.dataset.view===v));
+  $('#viewHint').textContent=HINTS[v]||'';
+  if(v==='relief'&&A&&reliefDirty)renderRelief();
+  if(v==='compare')renderCompare();
+  updateReadout();
+}
+function updateReadout(){
+  const ro=$('#readout');
+  if(!A||!D){ro.innerHTML='<span>menunggu sumber…</span>';return;}
+  const p=P||readParams();
+  const azd=Math.round(((az%360)+360)%360);
+  ro.innerHTML=
+    `<span>DIM <b>${A.w}×${A.h}</b></span>`+
+    `<span>SUBJEK <b>${(A.area*100).toFixed(1)}%</b></span>`+
+    `<span>MODE <span class="acc">${A.face?'ANATOMIS':'BAYANGAN'}</span></span>`+
+    `<span>RAMP <b>${p.rampW}px</b></span>`+
+    `<span>PUNCAK <b>${p.mm.toFixed(1)}mm</b></span>`+
+    `<span>SINTESIS <b>${(A.synthMs||0).toFixed(0)}ms</b></span>`+
+    (view==='relief'?`<span>CAHAYA <span class="acc">${azd}°/${Math.round(elev)}°</span></span>`:'');
+}
+
+/* ---------- unggah gambar ---------- */
+function handleFiles(files){
+  const f=files&&files[0];
+  if(!f)return;
+  if(running){toast('Masih memproses — mohon tunggu');return;}
+  if(!f.type.startsWith('image/')){toast('Berkas bukan gambar');return;}
+  const url=URL.createObjectURL(f);
+  const img=new Image();
+  img.onload=async()=>{
+    srcImg=img;srcName=f.name||'pasted-image';
+    $('#fileMeta').textContent=`${srcName} · ${img.naturalWidth}×${img.naturalHeight}`;
+    $('#empty').style.display='none';
+    await runAnalysis();
+    synthesize();
+    log(`SINTESIS — ${A.w}×${A.h} dalam <span class="k">${A.synthMs.toFixed(0)} ms</span> · ramp ${P.rampW}px kurva-S`);
+    setView('relief');
+    sweepLight();
+  };
+  img.onerror=()=>toast('Gagal memuat gambar');
+  img.src=url;
+}
+
+/* ---------- ekspor ---------- */
+function download(blob,name){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
+}
+ $('#btn-exp16').addEventListener('click',()=>{
+  if(!D)return;
+  const {w,h,n}=A,g=new Uint16Array(n);
+  for(let i=0;i<n;i++){
+    const v=Math.round(D[i]*65535);
+    g[i]=P.invert?65535-v:v;
+  }
+  download(encodeGrayPNG16(w,h,g),`basrelief-${w}x${h}-16bit.png`);
+  log(`EKSPOR — <span class="k">PNG grayscale 16-bit</span> · 65.536 tinggi kedalaman${P.invert?' · terinversi':''}`);
+  toast('PNG 16-bit diekspor — siap dimuat ke Vectric Aspire');
+});
+ $('#btn-exp8').addEventListener('click',()=>{
+  if(!D)return;
+  const c=mkCanvas(A.w,A.h),x=c.getContext('2d');
+  x.drawImage(depthCanvas,0,0);
+  if(P.invert){
+    const id=x.getImageData(0,0,A.w,A.h),d=id.data;
+    for(let i=0;i<d.length;i+=4){d[i]=255-d[i];d[i+1]=255-d[i+1];d[i+2]=255-d[i+2];}
+    x.putImageData(id,0,0);
+  }
+  c.toBlob(b=>{
+    download(b,`basrelief-${A.w}x${A.h}-8bit.png`);
+    log('EKSPOR — PNG 8-bit');
+  },'image/png');
+});
+ $('#btn-expRelief').addEventListener('click',()=>{
+  if(!D)return;
+  if(reliefDirty)renderRelief();
+  reliefCanvas.toBlob(b=>{
+    download(b,`basrelief-render-${mat}.png`);
+    log(`EKSPOR — render material <span class="k">${mat==='brass'?'kuningan':'batu'}</span>`);
+  },'image/png');
+});
+
+/* ---------- interaksi kanvas ---------- */
+reliefCanvas.addEventListener('pointerdown',e=>{
+  relDrag=true;lastPX=e.clientX;lastPY=e.clientY;
+  reliefCanvas.setPointerCapture(e.pointerId);stopSweep();
+});
+reliefCanvas.addEventListener('pointermove',e=>{
+  if(!relDrag)return;
+  az+=(e.clientX-lastPX)*0.4;
+  elev=clamp(elev-(e.clientY-lastPY)*0.35,8,80);
+  lastPX=e.clientX;lastPY=e.clientY;
+  queueRelief();updateReadout();
+});
+reliefCanvas.addEventListener('pointerup',()=>relDrag=false);
+reliefCanvas.addEventListener('pointercancel',()=>relDrag=false);
+
+cmpCanvas.addEventListener('pointerdown',e=>{
+  cmpDrag=true;cmpCanvas.setPointerCapture(e.pointerId);cmpMove(e);
+});
+cmpCanvas.addEventListener('pointermove',e=>{if(cmpDrag)cmpMove(e);});
+cmpCanvas.addEventListener('pointerup',()=>cmpDrag=false);
+cmpCanvas.addEventListener('pointercancel',()=>cmpDrag=false);
+function cmpMove(e){
+  const r=cmpCanvas.getBoundingClientRect();
+  cmpX=clamp((e.clientX-r.left)/r.width,0.02,0.98);
+  renderCompare();
+}
+
+/* probe nilai Z pada depth map */
+const tip=$('#tip');
+depthCanvas.addEventListener('mousemove',e=>{
+  if(!A||!D)return;
+  const r=depthCanvas.getBoundingClientRect();
+  const x=clamp(Math.floor((e.clientX-r.left)/r.width*A.w),0,A.w-1);
+  const y=clamp(Math.floor((e.clientY-r.top)/r.height*A.h),0,A.h-1);
+  const v=D[y*A.w+x];
+  const mm=parseFloat($('#c-mm').value)||10;
+  tip.textContent=`Z ${v.toFixed(3)} · ${(v*mm).toFixed(1)} / ${mm} mm`;
+  const vr=$('#viewport').getBoundingClientRect();
+  tip.style.display='block';
+  tip.style.left=Math.min(e.clientX-vr.left+16,vr.width-140)+'px';
+  tip.style.top=Math.max(e.clientY-vr.top-30,6)+'px';
+});
+depthCanvas.addEventListener('mouseleave',()=>tip.style.display='none');
+
+/* ---------- kontrol ---------- */
+const CTL=[
+  ['c-zAmp',   v=>(+v).toFixed(2)],
+  ['c-tension',v=>Math.round(v*100)+'%'],
+  ['c-rampW',  v=>v+' px'],
+  ['c-fillet', v=>v+' px'],
+  ['c-hairL',  v=>(+v).toFixed(2)],
+  ['c-detW',   v=>Math.round(v*100)+'%'],
+];
+for(const [id,fmt] of CTL){
+  const el=$('#'+id),out=el.closest('.ctl').querySelector('output');
+  const upd=()=>out.textContent=fmt(el.value);
+  upd();
+  el.addEventListener('input',()=>{
+    upd();
+    clearTimeout(synthTimer);
+    synthTimer=setTimeout(()=>{
+      if(A&&!analyzing){synthesize();if(view==='relief')renderRelief();}
+    },60);
+  });
+}
+ $$('.seg button').forEach(b=>b.addEventListener('click',()=>{
+  mat=b.dataset.mat;
+  $$('.seg button').forEach(x=>x.classList.toggle('on',x===b));
+  if(A)renderRelief();
+}));
+ $('#c-mm').addEventListener('input',updateReadout);
+ $('#c-invert').addEventListener('change',e=>{
+  log(`EKSPOR — inversi kedalaman ${e.target.checked?'<span class="k">aktif</span>':'nonaktif'}`);
+});
+ $$('.tabs button').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+ $('#resSel').addEventListener('change',async()=>{
+  if(srcImg){await runAnalysis();synthesize();if(view==='relief')renderRelief();}
+});
+ $('#btn-rerun').addEventListener('click',async()=>{
+  if(srcImg){await runAnalysis();synthesize();if(view==='relief')renderRelief();}
+});
+
+/* dropzone: klik, tarik-lepas, tempel */
+const drop=$('#drop'),fileInput=$('#fileInput');
+drop.addEventListener('click',()=>fileInput.click());
+ $('#empty').addEventListener('click',()=>fileInput.click());
+fileInput.addEventListener('change',()=>handleFiles(fileInput.files));
+drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
+drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+drop.addEventListener('drop',e=>{
+  e.preventDefault();drop.classList.remove('over');
+  handleFiles(e.dataTransfer.files);
+});
+['dragover','drop'].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault()));
+document.addEventListener('paste',e=>{
+  const items=e.clipboardData&&e.clipboardData.items;if(!items)return;
+  for(const it of items){
+    if(it.type.indexOf('image')===0){const f=it.getAsFile();if(f)handleFiles([f]);break;}
+  }
+});
+
+/* ---------- modal protokol ---------- */
+const PROTOCOL_TXT=
+`# YOU ARE EXPERT DEPTHMAP GENERATOR SOFTWARE
+# STEP 1 — INPUT
+An original image is uploaded.
+# STEP 2 — CONTROLLED STYLE CONVERSION
+Convert the image into a monochromatic Art Deco bas-relief style. The main subject MUST remain identical to the original (100% fidelity): same geometry, same pose, same proportions, no reinterpretation, no invented decorations. The transformation is purely stylistic — the subject must appear sculpted, not redesigned. Background: pure black (#000000), uniform and empty.
+# STEP 3 — DEEP BAS-RELIEF DEPTH MAP
+From the styled image, generate an extremely deep, high-contrast, high-precision depth map optimized for aggressive Z-scale amplification while remaining fully rounded and machinable.
+# ROLE
+High-precision Depth Map Generator optimized for CNC Routers and Vectric Aspire. Output: 32-bit floating-point grayscale heightmap for deep physical carving.
+# CORE DIRECTIVES
+- Treat all skin areas as smooth, continuous sculpted solid; remove noise, grain, pores and paper texture.
+- Preserve full anatomical curvature with exaggerated depth; surfaces stay convex or smoothly concave — never planar.
+- No terraces, no flat plateaus, no stepped depth zones.
+# MICRO-RELIEF (DEEP MODE)
+- Eyes: eyelids, eye sockets, iris, pupil — readable, deep, fully rounded.
+- Eyebrows rendered as broad volumetric ridges.
+- Nose bridge, nostrils and tip; lips, philtrum and mouth separation.
+- Jawline, chin and cheek transitions — filleted with progressive curvature, no sharp inflection points.
+# HAIR
+- A single coherent volumetric mass — no strands, no lines, no texture.
+- Hair depth significantly lower than facial peaks; transitions long, smooth and rounded.
+# EXTREME DEPTH CONTRAST
+- Separate landmarks using curvature and slope length, not abrupt height jumps.
+- Nose, brow ridge, lips and cheekbones must project clearly forward; no compression or clipping of depth values.
+# EDGE HANDLING
+- Extra-wide rounded emergence ramp into black: 30–50 pixels minimum, long S-curve easing for entry and exit.
+- No vertical walls, no cut edges.
+# DEPTH HIERARCHY
+- Highest elevation: nose tip, brow ridge, forehead apex, upper cheekbones.
+- Mid-high elevation: lips, eye sockets, cheeks.
+- Lower elevation: hair mass, jawline, neck. Background: pure black (#000000).
+# Z-SCALE STABILITY (ABSOLUTE PRIORITY)
+- The relief must remain fully rounded at all magnifications; zero banding, terracing or contour artifacts.
+- Replace any steep transition with a smooth filleted ramp; enforce C2 curvature continuity across the entire surface.
+- Preserve peak height clarity, facial feature separation and anatomical readability; never collapse or flatten deep features.
+# STRICTLY FORBIDDEN
+- No noise, no grain, no dithering, no texture simulation.
+- No individual hair strands, no hard edges, no stepped depth levels, no plateaus.
+- No flattening of facial anatomy. No text.
+# ACTIVATION
+Generate a 32-bit floating-point grayscale depth map suitable for Vectric Aspire CNC carving — a very deep bas-relief with strong sculptural presence, fully rounded profiles, continuous smooth slopes, and zero visible Z-step artifacts even at extreme depth scaling.`;
+
+function renderProtocol(){
+  let html='',inUl=false;
+  for(const ln of PROTOCOL_TXT.split('\n')){
+    const t=ln.trim();
+    if(!t){if(inUl){html+='</ul>';inUl=false;}continue;}
+    if(t.startsWith('#')){
+      if(inUl){html+='</ul>';inUl=false;}
+      html+=`<h3>${t.slice(1).trim()}</h3>`;
+    }else if(t.startsWith('- ')){
+      if(!inUl){html+='<ul>';inUl=true;}
+      html+=`<li>${t.slice(2)}</li>`;
+    }else{
+      if(inUl){html+='</ul>';inUl=false;}
+      html+=`<p>${t}</p>`;
+    }
+  }
+  if(inUl)html+='</ul>';
+  $('#docBody').innerHTML=html;
+}
+ $('#btn-protocol').addEventListener('click',()=>{
+  $('#modal').classList.add('on');document.body.style.overflow='hidden';
+});
+const closeModal=()=>{$('#modal').classList.remove('on');document.body.style.overflow='';};
+ $('#btn-close-modal').addEventListener('click',closeModal);
+ $('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+ $('#btn-copy').addEventListener('click',async()=>{
+  try{
+    await navigator.clipboard.writeText(PROTOCOL_TXT);
+    toast('Protokol disalin ke clipboard');
+  }catch(e){
+    toast('Gagal menyalin — salin manual dari modal');
+  }
+});
+
+/* ---------- inisialisasi ---------- */
+if(window.lucide)lucide.createIcons();
+renderProtocol();
+setView('depth');
+updateReadout();
+log('BASRELIEF v1.0 — atelier depth map untuk CNC &amp; Vectric Aspire');
+log('semua komputasi berjalan <span class="k">lokal</span> — tidak ada gambar yang dikirim ke server');
+setTimeout(()=>ensureModels(),1500); /* pemanasan model di latar belakang */
+</script>
+</body>
+</html>
