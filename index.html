@@ -1,812 +1,329 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<!--
-  ═══════════════════════════════════════════════════════════════
-  KEDALAMAN — Estimasi kedalaman monokuler, sepenuhnya di peramban
-  Model : Depth Anything V2-S (ONNX, via transformers.js)
-  Deploy: simpan sebagai index.html → push ke repo GitHub →
-          Settings → Pages → Deploy from branch (root). Selesai.
-  ═══════════════════════════════════════════════════════════════
--->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KEDALAMAN — Estimasi Depth Monokuler di Peramban</title>
-<meta name="description" content="Ubah foto menjadi peta kedalaman dengan Depth Anything V2. Berjalan sepenuhnya lokal di browser — tanpa server, tanpa upload.">
-<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect x="3" y="3" width="26" height="26" fill="none" stroke="%23F0A33A" stroke-width="2"/><path d="M16 3v26M3 16h26" stroke="%23F0A33A" stroke-width="1" opacity=".5"/><circle cx="16" cy="16" r="5" fill="none" stroke="%23F0A33A" stroke-width="2"/></svg>'>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<title>RELIEF — Gambar → Heightmap untuk CNC / Aspire</title>
+<meta name="description" content="Ubah gambar menjadi heightmap grayscale untuk Vectric Aspire / CNC. Putih = tinggi, hitam = rendah. 100% lokal, tanpa unduhan model.">
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect x="3" y="3" width="26" height="26" fill="none" stroke="%23F0A33A" stroke-width="2"/><path d="M3 22h26M3 15h26M3 8h26" stroke="%23F0A33A" stroke-width="2"/></svg>'>
 <style>
   :root{
-    --bg:#0D0E0B; --bg2:#131410;
-    --line:rgba(234,231,220,.09); --line2:rgba(234,231,220,.22);
-    --ink:#EBE8DE; --dim:#8E8A7C;
-    --amber:#F0A33A; --err:#E5484D;
-    --mono:'IBM Plex Mono',monospace;
+    --bg:#0D0E0B; --line:rgba(234,231,220,.09); --line2:rgba(234,231,220,.22);
+    --ink:#EBE8DE; --dim:#8E8A7C; --amber:#F0A33A; --err:#E5484D;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%}
-  body{background:var(--bg);color:var(--ink);font-family:'Archivo',sans-serif;overflow:hidden}
+  body{background:var(--bg);color:var(--ink);font-family:'Archivo',system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column}
   ::selection{background:var(--amber);color:#141310}
-  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:rgba(234,231,220,.14)}
-  ::-webkit-scrollbar-track{background:transparent}
   button{font-family:inherit}
 
-  #app{height:100dvh;display:grid;grid-template-rows:57px minmax(0,1fr)}
+  header{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:57px;border-bottom:1px solid var(--line);flex:none}
+  .brand{display:flex;align-items:center;gap:13px;min-width:0}
+  .brand svg{width:20px;height:20px;flex:none}
+  .brand h1{font-size:14px;font-weight:700;letter-spacing:.2em;white-space:nowrap}
+  .brand span{font:500 9.5px var(--mono);color:var(--dim);letter-spacing:.12em;padding-left:13px;border-left:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chip{font:500 9.5px var(--mono);letter-spacing:.14em;color:var(--dim);border:1px solid var(--line);padding:7px 11px;flex:none;white-space:nowrap}
 
-  /* ── header ─────────────────────────────── */
-  header{display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--line)}
-  .brand{display:flex;align-items:center;gap:14px;min-width:0}
-  .brand .mark{width:22px;height:22px;flex:none}
-  .brand h1{font-size:15px;font-weight:700;font-stretch:122%;letter-spacing:.16em;white-space:nowrap}
-  .brand .sub{font:500 10px/1 var(--mono);color:var(--dim);letter-spacing:.12em;padding-left:14px;border-left:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .chip{display:flex;align-items:center;gap:9px;font:500 10px var(--mono);letter-spacing:.14em;color:var(--dim);border:1px solid var(--line);padding:8px 11px;flex:none}
-  .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--dim);flex:none}
-  .chip.on .dot{background:var(--amber);box-shadow:0 0 0 3px rgba(240,163,58,.15)}
-  .chip.busy .dot{animation:pulse 1s infinite}
-  @keyframes pulse{50%{opacity:.25}}
+  main{flex:1;display:grid;place-items:center;padding:24px 20px}
+  #col{width:min(920px,100%);display:flex;flex-direction:column;gap:12px}
 
-  /* ── layout utama ───────────────────────── */
-  main{display:grid;grid-template-columns:308px minmax(0,1fr);min-height:0}
-  aside{border-right:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column;background:var(--bg)}
-  .blk{padding:16px 18px 18px;border-bottom:1px solid var(--line)}
-  .blk h2{font:600 10px/1 var(--mono);letter-spacing:.22em;color:var(--dim);margin-bottom:13px;display:flex;gap:10px}
-  .blk h2 em{color:var(--amber);font-style:normal}
+  #frame{position:relative;border:1px solid var(--line);min-height:min(440px,56vh);display:flex;align-items:center;justify-content:center;padding:16px;transition:border-color .15s}
+  #frame.hot{border-color:var(--amber)}
+  .tick{position:absolute;width:12px;height:12px;pointer-events:none;border:0 solid var(--line2)}
+  .tick.tl{top:-1px;left:-1px;border-top-width:2px;border-left-width:2px}
+  .tick.tr{top:-1px;right:-1px;border-top-width:2px;border-right-width:2px}
+  .tick.bl{bottom:-1px;left:-1px;border-bottom-width:2px;border-left-width:2px}
+  .tick.br{bottom:-1px;right:-1px;border-bottom-width:2px;border-right-width:2px}
 
-  /* sumber */
-  #drop{border:1px dashed var(--line2);padding:13px 14px;display:flex;align-items:center;gap:13px;cursor:pointer;transition:border-color .15s,background .15s}
-  #drop:hover{border-color:var(--amber);background:rgba(240,163,58,.04)}
-  #drop svg{width:20px;height:20px;color:var(--amber);flex:none}
-  #drop b{display:block;font:600 12px var(--mono);letter-spacing:.05em}
-  #drop span{display:block;font:400 9px var(--mono);color:var(--dim);letter-spacing:.07em;margin-top:4px}
-  .srcmeta{font:400 9px var(--mono);color:var(--dim);letter-spacing:.12em;margin-top:9px}
-  #samples{display:flex;gap:6px;margin-top:10px}
-  #samples button{flex:1;height:46px;padding:0;border:1px solid var(--line);background:none;cursor:pointer;overflow:hidden;transition:border-color .15s}
-  #samples img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.8) contrast(.95);transition:filter .15s}
-  #samples button:hover{border-color:var(--amber)}
-  #samples button:hover img{filter:none}
-  #samples button:disabled{opacity:.4;cursor:wait}
+  #empty{cursor:pointer;text-align:center;padding:24px}
+  #empty h2{font-size:clamp(30px,4.4vw,52px);font-weight:700;line-height:1.05;text-transform:uppercase;letter-spacing:.01em}
+  #empty h2 em{font-style:normal;color:transparent;-webkit-text-stroke:1.4px var(--amber)}
+  #empty p{font:400 10.5px/1.9 var(--mono);color:var(--dim);letter-spacing:.1em;margin-top:14px}
+  .kbd{border:1px solid var(--line2);padding:1px 6px;color:var(--ink)}
 
-  /* colormap */
-  .cmap{display:flex;align-items:center;gap:12px;padding:9px 8px;margin:0 -8px;cursor:pointer;border-left:2px solid transparent;transition:background .12s}
-  .cmap:hover{background:rgba(234,231,220,.03)}
-  .cmap .sw{flex:1;height:9px;background:var(--line)}
-  .cmap span{font:500 10px var(--mono);letter-spacing:.14em;color:var(--dim);width:88px;flex:none}
-  .cmap.on{border-left-color:var(--amber)}
-  .cmap.on span{color:var(--ink)}
+  #out{display:none;max-width:100%;max-height:min(60vh,760px);cursor:pointer;image-rendering:auto;outline:1px solid var(--line)}
 
-  /* kontrol */
-  .row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font:500 11px var(--mono);letter-spacing:.08em}
-  .row b{color:var(--amber);font-weight:600}
-  .switch{width:32px;height:17px;border:1px solid var(--line2);position:relative;cursor:pointer;background:none;flex:none}
-  .switch i{position:absolute;top:2px;left:2px;width:11px;height:11px;background:var(--dim);transition:.15s}
-  .switch.on{border-color:var(--amber)}
-  .switch.on i{left:17px;background:var(--amber)}
-  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:2px;background:var(--line2);outline:none;margin:8px 0 2px;cursor:ew-resize}
-  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:var(--amber);border:none;cursor:ew-resize}
+  #dropHint{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font:600 12px var(--mono);letter-spacing:.34em;color:var(--amber);background:rgba(13,14,11,.6);z-index:4;pointer-events:none}
+  #frame.hot #dropHint{display:flex}
+
+  #ctrl{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;border:1px solid var(--line);padding:12px 16px}
+  .ctl{display:flex;align-items:center;gap:10px;flex:1;min-width:180px}
+  .ctl label{font:600 9.5px var(--mono);letter-spacing:.18em;color:var(--dim);flex:none;width:64px}
+  .ctl b{font:600 10.5px var(--mono);color:var(--amber);width:44px;text-align:right;flex:none}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:2px;background:var(--line2);outline:none;cursor:ew-resize}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:var(--amber);cursor:ew-resize}
   input[type=range]::-moz-range-thumb{width:13px;height:13px;background:var(--amber);border:none;border-radius:0;cursor:ew-resize}
+  #invert{display:flex;align-items:center;gap:9px;background:none;border:1px solid var(--line2);color:var(--dim);font:600 9.5px var(--mono);letter-spacing:.16em;padding:8px 12px;cursor:pointer;transition:.15s;flex:none}
+  #invert i{width:11px;height:11px;background:var(--dim);display:block;transition:.15s}
+  #invert.on{border-color:var(--amber);color:var(--ink)}
+  #invert.on i{background:var(--amber)}
 
-  /* ekspor & catatan */
-  .btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border:1px solid var(--line2);background:none;color:var(--ink);font:600 11px var(--mono);letter-spacing:.18em;cursor:pointer;transition:.15s}
-  .btn svg{width:14px;height:14px}
-  .btn:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
-  .btn:disabled{opacity:.35;cursor:not-allowed}
-  .note{padding:16px 18px;font:400 10px/1.8 var(--mono);color:var(--dim);letter-spacing:.03em;margin-top:auto}
+  #actions{display:flex;justify-content:space-between;align-items:center;gap:14px;min-height:42px}
+  #meta{font:400 9.5px var(--mono);color:var(--dim);letter-spacing:.12em;line-height:1.7}
+  #meta b{color:var(--ink);font-weight:500}
+  #dl{display:flex;align-items:center;gap:9px;padding:11px 18px;border:1px solid var(--line2);background:none;color:var(--ink);font:600 10.5px var(--mono);letter-spacing:.2em;cursor:pointer;transition:.15s;flex:none}
+  #dl svg{width:13px;height:13px}
+  #dl:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
+  #dl:disabled{opacity:.3;cursor:not-allowed}
 
-  /* ── stage ──────────────────────────────── */
-  #stage{display:flex;flex-direction:column;min-width:0;min-height:0}
-  #stagebar{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:0 18px;height:46px;flex:none}
-  .tabs{display:flex;height:100%}
-  .tab{display:flex;align-items:center;gap:9px;padding:0 18px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;color:var(--dim);font:600 11px var(--mono);letter-spacing:.18em;cursor:pointer;transition:color .15s}
-  .tab svg{width:14px;height:14px}
-  .tab.on{color:var(--amber);border-bottom-color:var(--amber)}
-  .tab:disabled{opacity:.35;cursor:not-allowed}
-  .hint{font:400 9px var(--mono);color:var(--dim);letter-spacing:.14em;text-align:right}
+  footer{flex:none;border-top:1px solid var(--line);padding:0 20px;height:38px;display:flex;align-items:center;justify-content:space-between;gap:14px;font:400 9px var(--mono);color:var(--dim);letter-spacing:.1em;white-space:nowrap;overflow:hidden}
 
-  #viewport{position:relative;flex:1;min-height:0;margin:16px}
-  #viewport.hot #frame{border-color:var(--amber)}
-  #frame{position:absolute;inset:0;border:1px solid var(--line);pointer-events:none;z-index:1}
-  .tick{position:absolute;width:12px;height:12px;z-index:1;pointer-events:none;--tc:var(--line2);transition:filter .3s}
-  .tick.tl{top:-1px;left:-1px;border-top:2px solid var(--tc);border-left:2px solid var(--tc)}
-  .tick.tr{top:-1px;right:-1px;border-top:2px solid var(--tc);border-right:2px solid var(--tc)}
-  .tick.bl{bottom:-1px;left:-1px;border-bottom:2px solid var(--tc);border-left:2px solid var(--tc)}
-  .tick.br{bottom:-1px;right:-1px;border-bottom:2px solid var(--tc);border-right:2px solid var(--tc)}
-  #viewport.live .tick{--tc:var(--amber)}
-  .edge{position:absolute;font:500 9px var(--mono);letter-spacing:.24em;color:var(--dim);z-index:1;pointer-events:none;background:var(--bg);padding:0 7px}
-  .lbl-tl{top:-7px;left:14px}
-  .lbl-br{bottom:-7px;right:14px}
-
-  #contours{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
-  #contours ellipse{animation:drift 28s linear infinite}
-  @keyframes drift{to{stroke-dashoffset:-300}}
-
-  /* keadaan kosong */
-  #empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;cursor:pointer;z-index:3}
-  #empty h3{font-size:clamp(34px,5.4vw,72px);font-weight:660;font-stretch:120%;line-height:.99;letter-spacing:.01em;text-transform:uppercase;text-align:center}
-  #empty h3 .ol{color:transparent;-webkit-text-stroke:1.5px var(--amber)}
-  #empty p{font:400 10.5px/2 var(--mono);color:var(--dim);letter-spacing:.1em;text-align:center}
-  #empty .kbd{border:1px solid var(--line2);padding:1px 6px;color:var(--ink)}
-
-  /* kanvas 2D */
-  #cwrap{position:absolute;inset:0;cursor:crosshair;z-index:2}
-  #cv{position:absolute;inset:0;width:100%;height:100%}
-  #wipe{position:absolute;width:0;display:none;pointer-events:none;z-index:4}
-  #wipe .bar{position:absolute;top:0;bottom:0;left:-1px;width:2px;background:var(--amber)}
-  #wipe .knob{position:absolute;top:50%;left:0;transform:translate(-50%,-50%);width:27px;height:27px;background:var(--bg);border:1px solid var(--amber);color:var(--amber);display:flex;align-items:center;justify-content:center;pointer-events:auto;cursor:ew-resize}
-  #wipe .knob svg{width:14px;height:14px}
-  .tag{position:absolute;display:none;top:0;font:600 9px var(--mono);letter-spacing:.2em;color:var(--dim);background:rgba(13,14,11,.72);border:1px solid var(--line);padding:4px 8px;z-index:3;pointer-events:none}
-  #readout{position:absolute;display:none;pointer-events:none;z-index:5;font:600 11px var(--mono);letter-spacing:.06em;background:rgba(13,14,11,.9);border:1px solid var(--line2);padding:6px 10px;white-space:nowrap}
-  #readout b{color:var(--amber)}
-
-  /* 3D */
-  #threeWrap{position:absolute;inset:0;display:none;z-index:2;cursor:grab}
-  #threeWrap:active{cursor:grabbing}
-  #threeWrap canvas{width:100% !important;height:100% !important;display:block}
-
-  /* progres & status */
-  #busy{position:absolute;left:0;right:0;top:0;height:2px;overflow:hidden;display:none;z-index:7}
-  #busy i,#obar.indet i{position:absolute;height:100%;width:30%;background:var(--amber);animation:sweep 1s linear infinite}
-  @keyframes sweep{from{left:-30%}to{left:100%}}
-  #dropHint{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font:600 12px var(--mono);letter-spacing:.34em;color:var(--amber);background:rgba(13,14,11,.6);z-index:8;pointer-events:none}
-  #viewport.hot #dropHint{display:flex}
-  #overlay{position:absolute;inset:0;background:rgba(13,14,11,.88);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:9}
-  #olabel{font:600 10px var(--mono);letter-spacing:.3em;color:var(--dim)}
-  #opct{font:600 26px var(--mono);color:var(--ink)}
-  #obar{width:min(340px,68%);height:2px;background:var(--line2);position:relative;overflow:hidden}
-  #obar i{display:block;height:100%;width:0;background:var(--amber);transition:width .25s}
-  #ofile{font:400 9px var(--mono);color:var(--dim);letter-spacing:.1em;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #statusbar{display:flex;justify-content:space-between;gap:14px;align-items:center;border-top:1px solid var(--line);padding:0 18px;height:34px;flex:none;font:400 9.5px var(--mono);color:var(--dim);letter-spacing:.1em;overflow:hidden;white-space:nowrap}
-  #statusbar b{color:var(--ink);font-weight:500}
-
-  /* toast */
   #toasts{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:50}
   .toast{background:#151612;border:1px solid var(--line2);border-left:2px solid var(--amber);padding:11px 15px;font:500 11px var(--mono);letter-spacing:.04em;animation:tin .2s ease;max-width:320px}
   .toast.err{border-left-color:var(--err)}
   @keyframes tin{from{opacity:0;transform:translateY(6px)}}
 
-  @media (max-width:920px){
-    body{overflow:auto}
-    #app{height:auto}
-    main{display:flex;flex-direction:column-reverse}
-    aside{border-right:none;border-top:1px solid var(--line)}
-    #viewport{min-height:430px;margin:12px}
-    .brand .sub,.hint{display:none}
-  }
+  @media (max-width:640px){ .brand span{display:none} #actions{flex-direction:column;align-items:stretch} #dl{justify-content:center} }
 </style>
 </head>
 <body>
-<div id="app">
 
-  <header>
-    <div class="brand">
-      <svg class="mark" viewBox="0 0 22 22" fill="none">
-        <rect x="1.5" y="1.5" width="19" height="19" stroke="#F0A33A" stroke-width="1.5"/>
-        <path d="M11 1.5v19M1.5 11h19" stroke="#F0A33A" stroke-width="1" opacity=".45"/>
-        <circle cx="11" cy="11" r="4" stroke="#F0A33A" stroke-width="1.5"/>
-      </svg>
-      <h1>KEDALAMAN</h1>
-      <span class="sub">DEPTH ANYTHING V2 — DI PERAMBAN, TANPA SERVER</span>
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 22 22" fill="none">
+      <rect x="1.5" y="1.5" width="19" height="19" stroke="#F0A33A" stroke-width="1.5"/>
+      <path d="M1.5 15.5h19M1.5 11h19M1.5 6.5h19" stroke="#F0A33A" stroke-width="1.4"/>
+    </svg>
+    <h1>RELIEF</h1>
+    <span>GAMBAR → HEIGHTMAP GRAYSCALE · UNTUK VECTRIC ASPIRE / CNC · 100% LOKAL</span>
+  </div>
+  <div class="chip">SIAP · TANPA MODEL · INSTAN</div>
+</header>
+
+<main>
+  <div id="col">
+    <div id="frame">
+      <span class="tick tl"></span><span class="tick tr"></span>
+      <span class="tick bl"></span><span class="tick br"></span>
+
+      <div id="empty">
+        <h2>JATUHKAN<br><em>GAMBAR</em>&nbsp;DI SINI</h2>
+        <p>KLIK UNTUK MEMILIH · SERET &amp; LEPAS · TEMPEL <span class="kbd">Ctrl</span>+<span class="kbd">V</span><br>
+        HEIGHTMAP OTOMATIS — PUTIH = TINGGI, HITAM = RENDAH<br>
+        TANPA UNDUHAN MODEL · LANGSUNG BISA DIUNDUH</p>
+      </div>
+
+      <canvas id="out" title="Klik untuk mengganti gambar"></canvas>
+      <div id="dropHint">LEPASKAN GAMBAR</div>
     </div>
-    <div class="chip" id="engChip"><span class="dot"></span><span id="backendLabel">MENYIAPKAN…</span></div>
-  </header>
 
-  <main>
-    <aside>
-      <section class="blk">
-        <h2><em>01</em>SUMBER</h2>
-        <div id="drop">
-          <i data-lucide="image-up"></i>
-          <div><b>Pilih gambar</b><span>atau jatuhkan di viewport · Ctrl+V</span></div>
-        </div>
-        <div class="srcmeta" id="srcMeta">BELUM ADA SUMBER</div>
-        <div id="samples"></div>
-      </section>
+    <div id="ctrl">
+      <div class="ctl"><label>DETAIL</label><input type="range" id="detail" min="0" max="400" value="200"><b id="detailV">200%</b></div>
+      <div class="ctl"><label>VOLUME</label><input type="range" id="volume" min="0" max="100" value="70"><b id="volumeV">70%</b></div>
+      <div class="ctl"><label>HALUS</label><input type="range" id="smooth" min="0" max="100" value="12"><b id="smoothV">12</b></div>
+      <button id="invert"><i></i>BALIK (HITAM=TINGGI)</button>
+    </div>
 
-      <section class="blk">
-        <h2><em>02</em>GAYA PETA</h2>
-        <div class="cmap on" data-cmap="karbon"><div class="sw"></div><span>ARANG</span></div>
-        <div class="cmap" data-cmap="inferno"><div class="sw"></div><span>INFERNO</span></div>
-        <div class="cmap" data-cmap="viridis"><div class="sw"></div><span>VIRIDIS</span></div>
-        <div class="cmap" data-cmap="spektral"><div class="sw"></div><span>SPEKTRAL</span></div>
-        <div class="cmap" data-cmap="mono"><div class="sw"></div><span>MONOKROM</span></div>
-      </section>
+    <div id="actions">
+      <div id="meta">Klik / jatuhkan berkas untuk memuat gambar · PNG keluaran siap diimpor ke Aspire</div>
+      <button id="dl" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 21h16"/></svg>
+        UNDUH PNG HEIGHTMAP
+      </button>
+    </div>
+  </div>
+</main>
 
-      <section class="blk">
-        <h2><em>03</em>KONTROL</h2>
-        <div class="row"><span>BALIK KEDALAMAN</span><button class="switch" id="invert" title="Balik arah dekat–jauh"><i></i></button></div>
-        <div class="row"><span>RELIEF 3D</span><b id="reliefVal">55%</b></div>
-        <input type="range" id="relief" min="0" max="100" value="55">
-      </section>
-
-      <section class="blk">
-        <h2><em>04</em>EKSPOR</h2>
-        <button class="btn" id="dl" disabled><i data-lucide="download"></i><span id="dlLabel">UNDUH PETA PNG</span></button>
-      </section>
-
-      <div class="note">
-        Depth Anything V2-S berjalan lokal via ONNX (WebGPU / WASM).
-        Model diunduh sekali lalu tersimpan di cache peramban.
-        Gambar Anda tidak pernah diunggah ke server mana pun.
-      </div>
-    </aside>
-
-    <section id="stage">
-      <div id="stagebar">
-        <div class="tabs">
-          <button class="tab on" id="tab2d" disabled><i data-lucide="layers"></i>PETA 2D</button>
-          <button class="tab" id="tab3d" disabled><i data-lucide="box"></i>RELIEF 3D</button>
-        </div>
-        <div class="hint" id="hint">MUAT GAMBAR UNTUK MEMULAI · TOMBOL 1 / 2 UNTUK GANTI MODE</div>
-      </div>
-
-      <div id="viewport">
-        <div id="frame"></div>
-        <span class="tick tl"></span><span class="tick tr"></span>
-        <span class="tick bl"></span><span class="tick br"></span>
-        <span class="edge lbl-tl">VIEWPORT·01</span>
-        <span class="edge lbl-br">KOMPUTASI LOKAL</span>
-
-        <svg id="contours" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice">
-          <g fill="none" stroke="rgba(234,231,220,.085)" stroke-width="1">
-            <ellipse cx="565" cy="250" rx="310" ry="185" transform="rotate(-8 565 250)"  stroke-dasharray="5 9"/>
-            <ellipse cx="565" cy="250" rx="235" ry="134" transform="rotate(-14 565 250)" stroke-dasharray="5 9"/>
-            <ellipse cx="565" cy="250" rx="168" ry="92"  transform="rotate(-20 565 250)" stroke-dasharray="5 9"/>
-            <ellipse cx="565" cy="250" rx="106" ry="56"  transform="rotate(-26 565 250)" stroke-dasharray="5 9"/>
-            <ellipse cx="565" cy="250" rx="52"  ry="26"  transform="rotate(-32 565 250)" stroke="rgba(240,163,58,.38)" stroke-dasharray="5 9"/>
-          </g>
-        </svg>
-
-        <div id="empty">
-          <h3>JATUHKAN<br><span class="ol">GAMBAR</span>&nbsp;DI SINI</h3>
-          <p>SERET &amp; LEPAS · TEMPEL DARI PAPAN KLIP (<span class="kbd">Ctrl</span>+<span class="kbd">V</span>) · ATAU KLIK DI SINI<br>
-          SEMUANYA DIPROSES LOKAL — GAMBAR TIDAK MENINGGALKAN PERANGKAT</p>
-        </div>
-
-        <div id="cwrap">
-          <canvas id="cv"></canvas>
-          <div id="wipe"><div class="bar"></div><div class="knob" id="knob"><i data-lucide="chevrons-left-right"></i></div></div>
-          <span class="tag" id="tagL">ASLI</span>
-          <span class="tag" id="tagR">PETA KEDALAMAN</span>
-          <div id="readout"></div>
-        </div>
-
-        <div id="threeWrap"></div>
-        <div id="busy"><i></i></div>
-        <div id="dropHint">LEPASKAN GAMBAR</div>
-
-        <div id="overlay">
-          <div id="olabel">MENYIAPKAN ENGINE</div>
-          <div id="opct">—</div>
-          <div id="obar"><i></i></div>
-          <div id="ofile"></div>
-        </div>
-      </div>
-
-      <div id="statusbar">
-        <span id="meta">—</span>
-        <span>DEPTH ANYTHING V2-S · ONNX · <b id="sbBackend">—</b></span>
-      </div>
-    </section>
-  </main>
-</div>
+<footer>
+  <span>PUTIH = TINGGI · HITAM = RENDAH — IMPORT DI ASPIRE: “CREATE COMPONENT FROM AN IMAGE”, ATUR DEPTH SAAT PEMBENTUKAN</span>
+  <span>DIPROSES DI PERANGKAT ANDA</span>
+</footer>
 
 <div id="toasts"></div>
 <input type="file" id="fileInput" accept="image/*" hidden>
 
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
-<script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js"></script>
-
-<script type="module">
-import { pipeline, env, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.1';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
-env.allowLocalModels = false;
-
-const MODEL_ID = 'onnx-community/depth-anything-v2-small';
+<script>
+'use strict';
 const $ = s => document.querySelector(s);
-
 const els = {
-  cv: $('#cv'), cwrap: $('#cwrap'), wipe: $('#wipe'), knob: $('#knob'),
-  tagL: $('#tagL'), tagR: $('#tagR'), readout: $('#readout'),
-  empty: $('#empty'), overlay: $('#overlay'), olabel: $('#olabel'),
-  opct: $('#opct'), obar: $('#obar'), obarFill: $('#obar i'), ofile: $('#ofile'),
-  busy: $('#busy'), viewport: $('#viewport'), dropHint: $('#dropHint'),
-  meta: $('#meta'), hint: $('#hint'), sbBackend: $('#sbBackend'),
-  backend: $('#backendLabel'), chip: $('#engChip'),
-  relief: $('#relief'), reliefVal: $('#reliefVal'),
-  invert: $('#invert'), dl: $('#dl'), dlLabel: $('#dlLabel'),
-  srcMeta: $('#srcMeta'), fileInput: $('#fileInput'),
-  threeWrap: $('#threeWrap'), drop: $('#drop'),
-  tab2d: $('#tab2d'), tab3d: $('#tab3d'),
+  frame: $('#frame'), empty: $('#empty'), out: $('#out'),
+  dl: $('#dl'), meta: $('#meta'), fileInput: $('#fileInput'),
+  detail: $('#detail'), volume: $('#volume'), smooth: $('#smooth'),
+  detailV: $('#detailV'), volumeV: $('#volumeV'), smoothV: $('#smoothV'),
+  invert: $('#invert'),
 };
 
-const S = {
-  mode: '2d',
-  blob: null, srcName: '',
-  image: null, imageW: 0, imageH: 0,
-  rawDepth: null, depthFloat: null, depthW: 0, depthH: 0,
-  invert: false, cmap: 'karbon', relief: .55, split: .5,
-  ready: false, pending: false, busy: false,
-  hasResult: false, dirty3d: true,
-  inferMs: 0, backendLabel: '—', dtype: '',
-};
+const MAX_DIM = 2048;                       // resolusi maksimum keluaran (naikkan bila perlu)
+const BASE_RADIUS = 0.03;                   // radius "tulang dasar" = 3% sisi terpendek
 
-/* ── colormap: LUT 256 entri dari beberapa stop warna ── */
-const CMAPS = {
-  karbon:  [[0,'#070706'],[.35,'#331B0C'],[.62,'#8A4A16'],[.82,'#E08A2E'],[1,'#FFE9C4']],
-  inferno: [[0,'#000004'],[.18,'#420A68'],[.36,'#932667'],[.54,'#DD513A'],[.72,'#F3771A'],[.88,'#F9C832'],[1,'#FCFFA4']],
-  viridis: [[0,'#440154'],[.25,'#3B528B'],[.5,'#21918C'],[.75,'#5EC962'],[1,'#FDE725']],
-  spektral:[[0,'#0B2A5B'],[.3,'#0E8F92'],[.55,'#4CB46E'],[.78,'#E3C64B'],[1,'#D64533']],
-  mono:    [[0,'#000000'],[1,'#FFFFFF']],
-};
-const hex2rgb = h => [1,3,5].map(i => parseInt(h.slice(i,i+2),16));
-const LUT = {};
-for (const [name, stops] of Object.entries(CMAPS)) {
-  const lut = new Uint8Array(256*3);
-  for (let i=0;i<256;i++){
-    const t=i/255;
-    let a=stops[0], b=stops[stops.length-1];
-    for (let s=0;s<stops.length-1;s++) if (t>=stops[s][0] && t<=stops[s+1][0]){ a=stops[s]; b=stops[s+1]; break; }
-    const f=(b[0]-a[0])||1e-6, k=Math.min(1,Math.max(0,(t-a[0])/f));
-    const ca=hex2rgb(a[1]), cb=hex2rgb(b[1]);
-    for (let c=0;c<3;c++) lut[i*3+c]=Math.round(ca[c]+(cb[c]-ca[c])*k);
-  }
-  LUT[name]=lut;
-}
+const S = { W:0, H:0, lum:null, base:null, hbuf:null, t1:null, t2:null,
+            name:'gambar', loaded:false, srcW:0, srcH:0 };
+const P = { detail:2.0, volume:0.70, smooth:0.12, invert:false };
 
 function toast(msg, isErr=false){
   const t=document.createElement('div');
   t.className='toast'+(isErr?' err':'');
   t.textContent=msg;
   $('#toasts').appendChild(t);
-  setTimeout(()=>{ t.style.transition='opacity .3s'; t.style.opacity='0'; setTimeout(()=>t.remove(),320); }, 3800);
+  setTimeout(()=>{ t.style.transition='opacity .3s'; t.style.opacity='0'; setTimeout(()=>t.remove(),320); },3600);
 }
 
-/* ── pemrosesan kedalaman ── */
-function computeFloat(){
-  const src=S.rawDepth, n=src.length;
-  let mn=255, mx=0;
-  for (let i=0;i<n;i++){ const v=src[i]; if(v<mn)mn=v; if(v>mx)mx=v; }
-  const r=(mx-mn)||1;
-  const out=new Float32Array(n);
-  if (S.invert) for (let i=0;i<n;i++) out[i]=1-(src[i]-mn)/r;
-  else          for (let i=0;i<n;i++) out[i]=(src[i]-mn)/r;
-  S.depthFloat=out;
+/* ── box blur separable (running sum, O(n) per pass) ── */
+function boxBlurH(src,dst,W,H,r){
+  const inv=1/(2*r+1), last=W-1;
+  for(let y=0;y<H;y++){
+    const row=y*W; let sum=0;
+    for(let x=-r;x<=r;x++) sum+=src[row+(x<0?0:x>last?last:x)];
+    for(let x=0;x<W;x++){
+      dst[row+x]=sum*inv;
+      const xa=x+r+1, xd=x-r;
+      sum+=src[row+(xa>last?last:xa)]-src[row+(xd<0?0:xd)];
+    }
+  }
+}
+function boxBlurV(src,dst,W,H,r){
+  const inv=1/(2*r+1), last=H-1;
+  for(let x=0;x<W;x++){
+    let sum=0;
+    for(let y=-r;y<=r;y++) sum+=src[(y<0?0:y>last?last:y)*W+x];
+    for(let y=0;y<H;y++){
+      dst[y*W+x]=sum*inv;
+      const ya=y+r+1, yd=y-r;
+      sum+=src[(ya>last?last:ya)*W+x]-src[(yd<0?0:yd)*W+x];
+    }
+  }
+}
+function blurPass(src,dst,tmp,W,H,r){ boxBlurH(src,tmp,W,H,r); boxBlurV(tmp,dst,W,H,r); }
+
+/* ── muat gambar → luminance + tulang dasar (dihitung sekali) ── */
+async function loadImage(blob,name){
+  let bmp;
+  try{ bmp=await createImageBitmap(blob,{imageOrientation:'from-image'}); }
+  catch(e){ toast('Gagal membaca gambar',true); return; }
+
+  const sc=Math.min(1,MAX_DIM/Math.max(bmp.width,bmp.height));
+  const W=Math.max(2,Math.round(bmp.width*sc)), H=Math.max(2,Math.round(bmp.height*sc));
+  const c=document.createElement('canvas'); c.width=W; c.height=H;
+  const x=c.getContext('2d',{willReadFrequently:true});
+  x.fillStyle='#000'; x.fillRect(0,0,W,H);      // komposit di atas hitam
+  x.drawImage(bmp,0,0,W,H);
+  bmp.close&&bmp.close();
+
+  const d=x.getImageData(0,0,W,H).data, n=W*H;
+  const lum=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    const o=i*4;
+    lum[i]=(d[o]*0.2126+d[o+1]*0.7152+d[o+2]*0.0722)/255;
+  }
+
+  S.lum=lum; S.W=W; S.H=H;
+  S.name=(name||'gambar').replace(/\.[^.]+$/,'');
+  S.srcW=bmp.width||W; S.srcH=bmp.height||H;
+  S.hbuf=new Float32Array(n); S.t1=new Float32Array(n); S.t2=new Float32Array(n);
+
+  // tulang dasar: blur besar 2 pass (≈ gaussian) — bentuk menara/volume umum
+  const r=Math.max(2,Math.round(Math.min(W,H)*BASE_RADIUS));
+  let cur=Float32Array.from(lum), nxt=new Float32Array(n), tmp=new Float32Array(n);
+  blurPass(cur,nxt,tmp,W,H,r); [cur,nxt]=[nxt,cur];
+  blurPass(cur,nxt,tmp,W,H,r); [cur,nxt]=[nxt,cur];
+  S.base=cur;
+
+  S.loaded=true;
+  els.out.style.display='block';
+  els.empty.style.display='none';
+  els.dl.disabled=false;
+  scheduleRebuild(true);
 }
 
-const depthCanvas = document.createElement('canvas');
-function buildDepthCanvas(){
-  depthCanvas.width=S.depthW; depthCanvas.height=S.depthH;
-  const ctx=depthCanvas.getContext('2d');
-  const img=ctx.createImageData(S.depthW,S.depthH);
-  const lut=LUT[S.cmap], d=S.depthFloat, px=img.data;
-  for (let i=0;i<d.length;i++){
-    const j=(d[i]*255)|0, o=i*4, c=j*3;
-    px[o]=lut[c]; px[o+1]=lut[c+1]; px[o+2]=lut[c+2]; px[o+3]=255;
+/* ── bangun heightmap dari parameter saat ini ── */
+function rebuild(){
+  if(!S.loaded) return;
+  const {lum,base,hbuf,W,H}=S, n=W*H;
+  const k=P.detail, V=P.volume;
+
+  // h = volume dasar + residual detail (bagian lebih terang dari dasar diperkuat)
+  for(let i=0;i<n;i++){
+    let h=base[i]*V+(lum[i]-base[i])*k;
+    if(h<0)h=0; else if(h>1)h=1;   // alur dalam "dipahat sampai lantai"
+    hbuf[i]=h;
+  }
+
+  // penghalusan ringan (hilangkan noise JPEG)
+  const r=Math.round(P.smooth*Math.min(W,H)*0.008);
+  if(r>0){
+    boxBlurH(hbuf,S.t1,W,H,r); boxBlurV(S.t1,S.t2,W,H,r); hbuf.set(S.t2);
+    for(let i=0;i<n;i++){ if(hbuf[i]<0)hbuf[i]=0; else if(hbuf[i]>1)hbuf[i]=1; }
+  }
+
+  // peregangan: persentil tinggi → putih penuh, lantai tetap hitam
+  const hist=new Uint32Array(256);
+  for(let i=0;i<n;i++) hist[(hbuf[i]*255)|0]++;
+  let acc=0, hi=255;
+  for(let b=255;b>=0;b--){ acc+=hist[b]; if(acc>=n*0.005){ hi=b; break; } }
+  const scale=hi<=3?1:255/hi;
+
+  const inv=P.invert;
+  els.out.width=W; els.out.height=H;
+  const ctx=els.out.getContext('2d');
+  const img=ctx.createImageData(W,H), px=img.data;
+  for(let i=0;i<n;i++){
+    let v=hbuf[i]*scale/255;
+    if(v>1)v=1;
+    if(inv)v=1-v;
+    const g=(v*255)|0, o=i*4;
+    px[o]=px[o+1]=px[o+2]=g; px[o+3]=255;
   }
   ctx.putImageData(img,0,0);
+
+  els.meta.innerHTML=
+    `<b>${S.srcW}×${S.srcH}</b> → <b>${W}×${H}</b> PX · DETAIL <b>${Math.round(k*100)}%</b> · VOLUME <b>${Math.round(V*100)}%</b><br>`+
+    `PNG GRAYSCALE — SIAP DIIMPORT KE ASPIRE`;
 }
 
-function sampleDepth(u,v){
-  const df=S.depthFloat, w=S.depthW, h=S.depthH;
-  const x=Math.min(w-1,Math.max(0,u*(w-1))), y=Math.min(h-1,Math.max(0,v*(h-1)));
-  const x0=x|0, y0=y|0, x1=Math.min(w-1,x0+1), y1=Math.min(h-1,y0+1);
-  const fx=x-x0, fy=y-y0;
-  const a=df[y0*w+x0], b=df[y0*w+x1], c=df[y1*w+x0], d=df[y1*w+x1];
-  return a*(1-fx)*(1-fy)+b*fx*(1-fy)+c*(1-fx)*fy+d*fx*fy;
+let tmr=0;
+function scheduleRebuild(now){
+  clearTimeout(tmr);
+  tmr=setTimeout(rebuild, now?0:90);
 }
-
-/* ── tampilan 2D + knob pembanding ── */
-const fit = {x:0,y:0,w:0,h:0};
-let revealRaf = 0;
-
-function draw2D(){
-  const dpr=Math.min(window.devicePixelRatio||1,2);
-  const w=els.cwrap.clientWidth, h=els.cwrap.clientHeight;
-  if(!w||!h) return;
-  els.cv.width=Math.round(w*dpr); els.cv.height=Math.round(h*dpr);
-  const ctx=els.cv.getContext('2d');
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.clearRect(0,0,w,h);
-  if(!S.image){ layoutOverlays(false); return; }
-
-  const pad=34, sc=Math.min((w-pad*2)/S.imageW,(h-pad*2)/S.imageH);
-  fit.w=S.imageW*sc; fit.h=S.imageH*sc;
-  fit.x=(w-fit.w)/2; fit.y=(h-fit.h)/2;
-
-  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
-  ctx.drawImage(depthCanvas,fit.x,fit.y,fit.w,fit.h);           // lapisan kedalaman (penuh)
-  const sx=fit.x+fit.w*S.split;
-  ctx.save();                                                    // lapisan asli terpotong kiri
-  ctx.beginPath(); ctx.rect(fit.x-1,fit.y-1,sx-fit.x+1,fit.h+2); ctx.clip();
-  ctx.drawImage(S.image,fit.x,fit.y,fit.w,fit.h);
-  ctx.restore();
-  ctx.strokeStyle='rgba(234,231,220,.16)';
-  ctx.strokeRect(fit.x+.5,fit.y+.5,fit.w,fit.h);
-  layoutOverlays(true);
-}
-
-function layoutOverlays(show){
-  if(!show||!S.image){ els.wipe.style.display='none'; els.tagL.style.display=els.tagR.style.display='none'; return; }
-  els.wipe.style.display='block';
-  els.wipe.style.left=(fit.x+fit.w*S.split)+'px';
-  els.wipe.style.top=fit.y+'px';
-  els.wipe.style.height=fit.h+'px';
-  els.tagL.style.display=els.tagR.style.display='block';
-  els.tagL.style.left=(fit.x+10)+'px';  els.tagL.style.top=(fit.y+10)+'px';
-  els.tagR.style.left=(fit.x+fit.w-10)+'px'; els.tagR.style.top=(fit.y+10)+'px';
-  els.tagR.style.transform='translateX(-100%)';
-}
-
-function animateReveal(){
-  const from=.02, to=.5, dur=750, t0=performance.now();
-  cancelAnimationFrame(revealRaf);
-  (function step(){
-    const t=Math.min(1,(performance.now()-t0)/dur);
-    S.split=from+(to-from)*(1-Math.pow(1-t,3));
-    draw2D();
-    if(t<1) revealRaf=requestAnimationFrame(step);
-  })();
-}
-
-/* knob geser */
-let dragWipe=false;
-els.knob.addEventListener('pointerdown',e=>{ dragWipe=true; els.knob.setPointerCapture(e.pointerId); e.stopPropagation(); });
-els.knob.addEventListener('pointermove',e=>{
-  if(!dragWipe) return;
-  const r=els.cwrap.getBoundingClientRect();
-  S.split=Math.min(.98,Math.max(.02,(e.clientX-r.left-fit.x)/fit.w));
-  draw2D();
-});
-els.knob.addEventListener('pointerup',()=>dragWipe=false);
-els.knob.addEventListener('lostpointercapture',()=>dragWipe=false);
-
-/* readout nilai Z mengikuti kursor */
-els.cwrap.addEventListener('pointermove',e=>{
-  if(dragWipe||!S.depthFloat){ els.readout.style.display='none'; return; }
-  const r=els.cwrap.getBoundingClientRect();
-  const px=e.clientX-r.left, py=e.clientY-r.top;
-  const u=(px-fit.x)/fit.w, v=(py-fit.y)/fit.h;
-  if(u<0||u>1||v<0||v>1){ els.readout.style.display='none'; return; }
-  const z=sampleDepth(u,v);
-  els.readout.style.display='block';
-  els.readout.style.left=(px+16)+'px';
-  els.readout.style.top=(py+16)+'px';
-  els.readout.innerHTML=`Z <b>${z.toFixed(2)}</b> · ${z>.66?'DEKAT':z<.33?'JAUH':'MENENGAH'}`;
-});
-els.cwrap.addEventListener('pointerleave',()=>els.readout.style.display='none');
-
-/* ── relief 3D (three.js) ── */
-let renderer=null, scene, camera, controls, group=null, vertexDepth=null, baseW=3, baseH=3;
-const texCanvas=document.createElement('canvas');
-
-function makeTextureCanvas(){
-  const m=1600, sc=Math.min(1,m/Math.max(S.imageW,S.imageH));
-  texCanvas.width=Math.round(S.imageW*sc);
-  texCanvas.height=Math.round(S.imageH*sc);
-  texCanvas.getContext('2d').drawImage(S.image,0,0,texCanvas.width,texCanvas.height);
-}
-
-function initThree(){
-  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
-  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-  els.threeWrap.appendChild(renderer.domElement);
-  scene=new THREE.Scene();
-  camera=new THREE.PerspectiveCamera(42,1,.1,100);
-  camera.position.set(0,.9,4.6);
-  controls=new OrbitControls(camera,renderer.domElement);
-  controls.enableDamping=true; controls.dampingFactor=.08;
-  controls.minDistance=1.4; controls.maxDistance=12;
-  controls.autoRotate=true; controls.autoRotateSpeed=.8;
-  controls.addEventListener('start',()=>controls.autoRotate=false);
-  const grid=new THREE.GridHelper(9,30,0x3A3B30,0x1B1C16);
-  grid.material.transparent=true; grid.material.opacity=.55;
-  grid.position.y=-2.05;
-  scene.add(grid);
-  loop3D();
-}
-
-function build3D(){
-  if(!S.hasResult) return;
-  if(!renderer) initThree();
-  if(group){
-    scene.remove(group);
-    group.traverse(o=>{ o.geometry&&o.geometry.dispose(); o.material&&(o.material.map&&o.material.map.dispose(),o.material.dispose()); });
-  }
-  S.dirty3d=false;
-  const aspect=S.imageW/S.imageH, MAX=3.3;
-  let W,H;
-  if(aspect>=1){ W=MAX; H=MAX/aspect; } else { H=MAX; W=MAX*aspect; }
-  baseW=W; baseH=H;
-
-  const segX=200, segY=Math.max(8,Math.round(segX*H/W));
-  const geo=new THREE.PlaneGeometry(W,H,segX,segY);
-  const pos=geo.attributes.position, uv=geo.attributes.uv;
-  vertexDepth=new Float32Array(pos.count);
-  for(let i=0;i<pos.count;i++) vertexDepth[i]=sampleDepth(uv.getX(i),1-uv.getY(i));
-
-  const tex=new THREE.CanvasTexture(texCanvas);
-  tex.colorSpace=THREE.SRGBColorSpace;
-  tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
-  const mesh=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}));
-  const wire=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:0xF0A33A,wireframe:true,transparent:true,opacity:.08}));
-  group=new THREE.Group();
-  group.add(mesh,wire);
-  scene.add(group);
-  applyRelief();
-}
-
-function applyRelief(){
-  if(!group) return;
-  const pos=group.children[0].geometry.attributes.position;
-  const sc=Math.min(baseW,baseH)*.55*S.relief;
-  for(let i=0;i<pos.count;i++) pos.setZ(i,vertexDepth[i]*sc);
-  pos.needsUpdate=true;
-}
-
-function resize3D(){
-  if(!renderer) return;
-  const w=els.threeWrap.clientWidth, h=els.threeWrap.clientHeight;
-  if(!w||!h) return;
-  renderer.setSize(w,h,false);
-  camera.aspect=w/h;
-  camera.updateProjectionMatrix();
-}
-
-function loop3D(){
-  requestAnimationFrame(loop3D);
-  if(S.mode!=='3d'||!renderer) return;
-  controls.update();
-  renderer.render(scene,camera);
-}
-
-/* ── pemuatan model ── */
-let pipe=null;
-const fileProg=new Map();
-
-function showOverlay(label,pct,indet,sub){
-  els.overlay.style.display='flex';
-  els.olabel.textContent=label;
-  els.opct.textContent=indet?'—':pct+'%';
-  els.obarFill.style.width=indet?'40%':pct+'%';
-  els.obarFill.style.animation=indet?'sweep 1s linear infinite':'none';
-  els.ofile.textContent=sub||'';
-}
-const hideOverlay=()=>els.overlay.style.display='none';
-const setBackend=t=>els.backend.textContent=t;
-
-function onProgress(p){
-  if(p.status!=='progress'||!p.total) return;
-  fileProg.set(p.file,{loaded:p.loaded,total:p.total});
-  let L=0,T=0;
-  for(const f of fileProg.values()){ L+=f.loaded; T+=f.total; }
-  showOverlay('MENGUNDUH MODEL', T?Math.round(L/T*100):0, false,
-    `${p.file} · ${(L/1048576).toFixed(0)} / ${(T/1048576).toFixed(0)} MB`);
-}
-
-async function initModel(){
-  els.chip.classList.add('busy');
-  setBackend('MEMUAT MODEL');
-  showOverlay('MENYIAPKAN ENGINE',0,true,'depth-anything-v2-small · ONNX');
-  let device='wasm', dtype='q8';
-  try{
-    if(navigator.gpu){ const ad=await navigator.gpu.requestAdapter(); if(ad){ device='webgpu'; dtype='fp32'; } }
-  }catch(e){}
-
-  const load=opt=>pipeline('depth-estimation',MODEL_ID,opt);
-  try{
-    pipe=await load({device,dtype,progress_callback:onProgress});
-  }catch(e){
-    if(device!=='webgpu'){
-      console.error(e);
-      showOverlay('GAGAL MEMUAT MODEL',0,false,'periksa koneksi internet lalu muat ulang');
-      toast('Model gagal dimuat — periksa koneksi internet',true);
-      return;
-    }
-    toast('WebGPU gagal diinisialisasi — beralih ke WASM',true);
-    device='wasm'; dtype='q8'; fileProg.clear();
-    try{ pipe=await load({device,dtype,progress_callback:onProgress}); }
-    catch(e2){
-      console.error(e2);
-      showOverlay('GAGAL MEMUAT MODEL',0,false,'periksa koneksi internet lalu muat ulang');
-      return;
-    }
-  }
-  S.ready=true; S.dtype=dtype;
-  S.backendLabel=device==='webgpu'?'WEBGPU · SIAP':'WASM · SIAP';
-  els.chip.classList.add('on'); els.chip.classList.remove('busy');
-  setBackend(S.backendLabel);
-  els.sbBackend.textContent=device.toUpperCase()+' · '+dtype.toUpperCase();
-  hideOverlay();
-  updateMeta();
-  if(S.pending){ S.pending=false; processBlob(S.blob,S.srcName); }
-}
-
-/* ── pipeline inferensi ── */
-async function processBlob(blob,name){
-  S.blob=blob; S.srcName=name||'GAMBAR';
-  els.srcMeta.textContent=S.srcName.toUpperCase();
-  if(!S.ready){ S.pending=true; showOverlay('MENUNGGU MODEL…',0,true,'akan diproses otomatis'); return; }
-  if(S.busy) return;
-  S.busy=true;
-  els.busy.style.display='block';
-  els.chip.classList.add('busy');
-  setBackend('MEMINDAI…');
-  try{
-    const t0=performance.now();
-    const img=await RawImage.fromBlob(blob);
-    const out=await pipe(img);
-    S.inferMs=performance.now()-t0;
-
-    const rim=out.depth;
-    let data=rim.data;
-    if(rim.channels>1){ // jaga-jaga jika buffer bukan 1 kanal
-      const nd=new Uint8ClampedArray(rim.width*rim.height);
-      for(let i=0;i<nd.length;i++) nd[i]=data[i*rim.channels];
-      data=nd;
-    }
-    S.rawDepth=data; S.depthW=rim.width; S.depthH=rim.height;
-    computeFloat(); buildDepthCanvas();
-
-    S.image=await createImageBitmap(blob);
-    S.imageW=S.image.width; S.imageH=S.image.height;
-    makeTextureCanvas();
-
-    S.hasResult=true; S.dirty3d=true;
-    els.viewport.classList.add('live');
-    els.empty.style.display='none';
-    els.tab2d.disabled=els.tab3d.disabled=false;
-    els.dl.disabled=false;
-    els.srcMeta.textContent=`${S.srcName.toUpperCase()} · ${S.imageW}×${S.imageH}`;
-    if(S.mode==='3d') build3D();
-    else { draw2D(); animateReveal(); }
-    updateMeta();
-  }catch(err){
-    console.error(err);
-    toast('Gagal memproses gambar: '+(err.message||err),true);
-  }finally{
-    S.busy=false;
-    els.busy.style.display='none';
-    els.chip.classList.remove('busy');
-    setBackend(S.backendLabel);
-  }
-}
-
-function updateMeta(){
-  const parts=[
-    S.image ?`SUMBER <b>${S.imageW}×${S.imageH}</b>`:'SUMBER —',
-    S.depthW?`DEPTH <b>${S.depthW}×${S.depthH}</b>`  :'DEPTH —',
-    S.inferMs?`INFERENSI <b>${Math.round(S.inferMs)} MS</b>`:'INFERENSI —',
-    S.dtype ?`ENGINE <b>${S.backendLabel.split(' ')[0]} · ${S.dtype.toUpperCase()}</b>`:'ENGINE —',
-  ];
-  els.meta.innerHTML=parts.join('&ensp;·&ensp;');
-}
-
-/* ── sumber gambar ── */
-function useFile(f){
-  if(!f.type.startsWith('image/')){ toast('Berkas bukan gambar',true); return; }
-  processBlob(f,f.name.replace(/\.[^.]+$/,''));
-}
-els.fileInput.addEventListener('change',e=>{ const f=e.target.files[0]; if(f) useFile(f); e.target.value=''; });
-els.drop.addEventListener('click',()=>els.fileInput.click());
-els.empty.addEventListener('click',()=>els.fileInput.click());
-['dragenter','dragover'].forEach(ev=>els.viewport.addEventListener(ev,e=>{ e.preventDefault(); els.viewport.classList.add('hot'); }));
-['dragleave','drop'].forEach(ev=>els.viewport.addEventListener(ev,e=>{ e.preventDefault(); els.viewport.classList.remove('hot'); }));
-els.viewport.addEventListener('drop',e=>{
-  const f=[...e.dataTransfer.files].find(f=>f.type.startsWith('image/'));
-  if(f) useFile(f);
-});
-document.addEventListener('paste',e=>{
-  const it=[...e.clipboardData.items].find(i=>i.type.startsWith('image/'));
-  if(it) processBlob(it.getAsFile(),'tempelan');
-});
-
-/* gambar contoh (picsum, tanpa key) */
-const SEEDS=['seaside','ridge','harbor','canyon'];
-SEEDS.forEach(seed=>{
-  const b=document.createElement('button');
-  b.title='Contoh: '+seed;
-  const im=document.createElement('img');
-  im.src=`https://picsum.photos/seed/${seed}/160/120.jpg`;
-  im.alt=''; im.loading='lazy';
-  b.appendChild(im);
-  b.addEventListener('click',async()=>{
-    b.disabled=true;
-    try{
-      const r=await fetch(`https://picsum.photos/seed/${seed}/1600/1067.jpg`);
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      processBlob(await r.blob(),'contoh-'+seed);
-    }catch(e){ toast('Contoh gagal dimuat — periksa koneksi',true); }
-    b.disabled=false;
-  });
-  $('#samples').appendChild(b);
-});
 
 /* ── kontrol ── */
 function paintSlider(el){
   const p=(el.value-el.min)/(el.max-el.min)*100;
   el.style.background=`linear-gradient(90deg,#F0A33A ${p}%,rgba(234,231,220,.22) ${p}%)`;
 }
-document.querySelectorAll('.cmap').forEach(el=>{
-  el.querySelector('.sw').style.background=
-    `linear-gradient(90deg,${CMAPS[el.dataset.cmap].map(s=>`${s[1]} ${s[0]*100}%`).join(',')})`;
-  el.addEventListener('click',()=>{
-    document.querySelectorAll('.cmap').forEach(x=>x.classList.remove('on'));
-    el.classList.add('on');
-    S.cmap=el.dataset.cmap;
-    if(S.hasResult){ buildDepthCanvas(); if(S.mode==='2d') draw2D(); }
-  });
+els.detail.addEventListener('input',()=>{ P.detail=+els.detail.value/100;
+  els.detailV.textContent=els.detail.value+'%'; paintSlider(els.detail); scheduleRebuild(); });
+els.volume.addEventListener('input',()=>{ P.volume=+els.volume.value/100;
+  els.volumeV.textContent=els.volume.value+'%'; paintSlider(els.volume); scheduleRebuild(); });
+els.smooth.addEventListener('input',()=>{ P.smooth=+els.smooth.value/100;
+  els.smoothV.textContent=els.smooth.value; paintSlider(els.smooth); scheduleRebuild(); });
+els.invert.addEventListener('click',()=>{ P.invert=!P.invert;
+  els.invert.classList.toggle('on',P.invert); scheduleRebuild(true); });
+
+/* ── sumber gambar ── */
+function useFile(f){
+  if(!f||!f.type.startsWith('image/')){ toast('Berkas bukan gambar',true); return; }
+  loadImage(f,f.name);
+}
+els.fileInput.addEventListener('change',e=>{ useFile(e.target.files[0]); e.target.value=''; });
+els.empty.addEventListener('click',()=>els.fileInput.click());
+els.out.addEventListener('click',()=>els.fileInput.click());
+['dragover','drop'].forEach(ev=>window.addEventListener(ev,e=>e.preventDefault()));
+els.frame.addEventListener('dragover',()=>els.frame.classList.add('hot'));
+els.frame.addEventListener('dragleave',()=>els.frame.classList.remove('hot'));
+els.frame.addEventListener('drop',e=>{
+  els.frame.classList.remove('hot');
+  useFile([...e.dataTransfer.files].find(f=>f.type.startsWith('image/')));
 });
-els.relief.addEventListener('input',()=>{
-  S.relief=+els.relief.value/100;
-  els.reliefVal.textContent=els.relief.value+'%';
-  paintSlider(els.relief);
-  if(S.mode==='3d') applyRelief();
-});
-els.invert.addEventListener('click',()=>{
-  S.invert=!S.invert;
-  els.invert.classList.toggle('on',S.invert);
-  if(S.hasResult){
-    computeFloat(); buildDepthCanvas();
-    if(S.mode==='2d') draw2D();
-    S.dirty3d=true;
-    if(S.mode==='3d') build3D();
-  }
+window.addEventListener('paste',e=>{
+  const it=[...e.clipboardData.items].find(i=>i.type.startsWith('image/'));
+  if(it) useFile(it.getAsFile()) || loadImage(it.getAsFile(),'tempelan');
 });
 
-function setMode(m){
-  if(m===S.mode) return;
-  if(m==='3d'&&!S.hasResult) return;
-  S.mode=m;
-  els.tab2d.classList.toggle('on',m==='2d');
-  els.tab3d.classList.toggle('on',m==='3d');
-  els.cwrap.style.display=m==='2d'?'block':'none';
-  els.threeWrap.style.display=m==='3d'?'block':'none';
-  els.hint.textContent=m==='2d'
-    ?'GESER KNOB UNTUK MEMBANDING · ARAHKAN KURSOR UNTUK NILAI Z'
-    :'SERET UNTUK MEMUTAR · SCROLL UNTUK ZOOM';
-  els.dlLabel.textContent=m==='2d'?'UNDUH PETA PNG':'UNDUH RENDER PNG';
-  if(m==='3d') requestAnimationFrame(()=>{ resize3D(); if(S.dirty3d) build3D(); });
-  else draw2D();
-}
-els.tab2d.addEventListener('click',()=>setMode('2d'));
-els.tab3d.addEventListener('click',()=>setMode('3d'));
-document.addEventListener('keydown',e=>{
-  if(e.target.tagName==='INPUT') return;
-  if(e.key==='1') setMode('2d');
-  if(e.key==='2') setMode('3d');
-});
-
-/* unduh */
-function saveBlob(b,name){
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(b); a.download=name; a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
-  toast('Tersimpan: '+name);
-}
+/* ── unduh ── */
 els.dl.addEventListener('click',()=>{
-  if(!S.hasResult){ toast('Belum ada hasil untuk diunduh',true); return; }
-  if(S.mode==='2d') depthCanvas.toBlob(b=>saveBlob(b,`depth-map-${S.cmap}.png`));
-  else{ renderer.render(scene,camera); renderer.domElement.toBlob(b=>saveBlob(b,'relief-3d.png')); }
+  if(!S.loaded) return;
+  els.out.toBlob(b=>{
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(b);
+    a.download=`heightmap-${S.name}.png`;
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+    toast('Tersimpan: heightmap-'+S.name+'.png');
+  },'image/png');
 });
 
-/* responsif terhadap ukuran viewport */
-new ResizeObserver(()=>{ draw2D(); resize3D(); }).observe(els.viewport);
-
-/* boot */
-if(window.lucide) lucide.createIcons();
-paintSlider(els.relief);
-updateMeta();
-initModel();
+paintSlider(els.detail); paintSlider(els.volume); paintSlider(els.smooth);
 </script>
 </body>
 </html>
