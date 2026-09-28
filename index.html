@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RELIEF — Gambar → Heightmap untuk CNC / Aspire</title>
-<meta name="description" content="Ubah gambar menjadi heightmap grayscale untuk Vectric Aspire / CNC. Putih = tinggi, hitam = rendah. 100% lokal, tanpa unduhan model.">
-<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect x="3" y="3" width="26" height="26" fill="none" stroke="%23F0A33A" stroke-width="2"/><path d="M3 22h26M3 15h26M3 8h26" stroke="%23F0A33A" stroke-width="2"/></svg>'>
+<title>RELIEF — Heightmap CNC untuk Vectric Aspire</title>
+<meta name="description" content="Gambar → heightmap grayscale 16-bit untuk CNC / Vectric Aspire. Emergence ramp, kubah kontinu, detail mikro. 100% lokal.">
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect x="3" y="3" width="26" height="26" fill="none" stroke="%23F0A33A" stroke-width="2"/><path d="M6 24c4-2 6-14 10-14s6 12 10 14" fill="none" stroke="%23F0A33A" stroke-width="2"/></svg>'>
 <style>
   :root{
     --bg:#0D0E0B; --line:rgba(234,231,220,.09); --line2:rgba(234,231,220,.22);
@@ -24,10 +24,10 @@
   .brand span{font:500 9.5px var(--mono);color:var(--dim);letter-spacing:.12em;padding-left:13px;border-left:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .chip{font:500 9.5px var(--mono);letter-spacing:.14em;color:var(--dim);border:1px solid var(--line);padding:7px 11px;flex:none;white-space:nowrap}
 
-  main{flex:1;display:grid;place-items:center;padding:24px 20px}
-  #col{width:min(920px,100%);display:flex;flex-direction:column;gap:12px}
+  main{flex:1;display:grid;place-items:center;padding:22px 20px}
+  #col{width:min(940px,100%);display:flex;flex-direction:column;gap:12px}
 
-  #frame{position:relative;border:1px solid var(--line);min-height:min(440px,56vh);display:flex;align-items:center;justify-content:center;padding:16px;transition:border-color .15s}
+  #frame{position:relative;border:1px solid var(--line);min-height:min(420px,54vh);display:flex;align-items:center;justify-content:center;padding:16px;transition:border-color .15s}
   #frame.hot{border-color:var(--amber)}
   .tick{position:absolute;width:12px;height:12px;pointer-events:none;border:0 solid var(--line2)}
   .tick.tl{top:-1px;left:-1px;border-top-width:2px;border-left-width:2px}
@@ -36,44 +36,46 @@
   .tick.br{bottom:-1px;right:-1px;border-bottom-width:2px;border-right-width:2px}
 
   #empty{cursor:pointer;text-align:center;padding:24px}
-  #empty h2{font-size:clamp(30px,4.4vw,52px);font-weight:700;line-height:1.05;text-transform:uppercase;letter-spacing:.01em}
+  #empty h2{font-size:clamp(30px,4.4vw,52px);font-weight:700;line-height:1.05;text-transform:uppercase}
   #empty h2 em{font-style:normal;color:transparent;-webkit-text-stroke:1.4px var(--amber)}
   #empty p{font:400 10.5px/1.9 var(--mono);color:var(--dim);letter-spacing:.1em;margin-top:14px}
   .kbd{border:1px solid var(--line2);padding:1px 6px;color:var(--ink)}
 
-  #out{display:none;max-width:100%;max-height:min(60vh,760px);cursor:pointer;image-rendering:auto;outline:1px solid var(--line)}
+  #out{display:none;max-width:100%;max-height:min(58vh,740px);cursor:pointer;outline:1px solid var(--line)}
 
   #dropHint{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font:600 12px var(--mono);letter-spacing:.34em;color:var(--amber);background:rgba(13,14,11,.6);z-index:4;pointer-events:none}
   #frame.hot #dropHint{display:flex}
 
   #ctrl{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;border:1px solid var(--line);padding:12px 16px}
-  .ctl{display:flex;align-items:center;gap:10px;flex:1;min-width:180px}
-  .ctl label{font:600 9.5px var(--mono);letter-spacing:.18em;color:var(--dim);flex:none;width:64px}
-  .ctl b{font:600 10.5px var(--mono);color:var(--amber);width:44px;text-align:right;flex:none}
+  .ctl{display:flex;align-items:center;gap:10px;flex:1;min-width:190px}
+  .ctl label{font:600 9.5px var(--mono);letter-spacing:.16em;color:var(--dim);flex:none;width:62px}
+  .ctl b{font:600 10.5px var(--mono);color:var(--amber);width:46px;text-align:right;flex:none}
   input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:2px;background:var(--line2);outline:none;cursor:ew-resize}
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:var(--amber);cursor:ew-resize}
   input[type=range]::-moz-range-thumb{width:13px;height:13px;background:var(--amber);border:none;border-radius:0;cursor:ew-resize}
-  #invert{display:flex;align-items:center;gap:9px;background:none;border:1px solid var(--line2);color:var(--dim);font:600 9.5px var(--mono);letter-spacing:.16em;padding:8px 12px;cursor:pointer;transition:.15s;flex:none}
-  #invert i{width:11px;height:11px;background:var(--dim);display:block;transition:.15s}
-  #invert.on{border-color:var(--amber);color:var(--ink)}
-  #invert.on i{background:var(--amber)}
+  .tgl{display:flex;align-items:center;gap:9px;background:none;border:1px solid var(--line2);color:var(--dim);font:600 9.5px var(--mono);letter-spacing:.14em;padding:8px 12px;cursor:pointer;transition:.15s;flex:none}
+  .tgl i{width:11px;height:11px;background:var(--dim);display:block;transition:.15s}
+  .tgl.on{border-color:var(--amber);color:var(--ink)}
+  .tgl.on i{background:var(--amber)}
 
-  #actions{display:flex;justify-content:space-between;align-items:center;gap:14px;min-height:42px}
-  #meta{font:400 9.5px var(--mono);color:var(--dim);letter-spacing:.12em;line-height:1.7}
+  #actions{display:flex;justify-content:space-between;align-items:center;gap:14px;min-height:44px}
+  #meta{font:400 9.5px var(--mono);color:var(--dim);letter-spacing:.1em;line-height:1.7}
   #meta b{color:var(--ink);font-weight:500}
-  #dl{display:flex;align-items:center;gap:9px;padding:11px 18px;border:1px solid var(--line2);background:none;color:var(--ink);font:600 10.5px var(--mono);letter-spacing:.2em;cursor:pointer;transition:.15s;flex:none}
-  #dl svg{width:13px;height:13px}
-  #dl:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
-  #dl:disabled{opacity:.3;cursor:not-allowed}
+  #dlbar{display:flex;gap:8px;flex:none}
+  .dl{display:flex;align-items:center;gap:8px;padding:11px 15px;border:1px solid var(--line2);background:none;color:var(--ink);font:600 10px var(--mono);letter-spacing:.16em;cursor:pointer;transition:.15s}
+  .dl:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
+  .dl:disabled{opacity:.3;cursor:not-allowed}
+  .dl.pri{border-color:var(--amber);color:var(--amber)}
+  .dl.pri:hover:not(:disabled){background:rgba(240,163,58,.08)}
 
-  footer{flex:none;border-top:1px solid var(--line);padding:0 20px;height:38px;display:flex;align-items:center;justify-content:space-between;gap:14px;font:400 9px var(--mono);color:var(--dim);letter-spacing:.1em;white-space:nowrap;overflow:hidden}
+  footer{flex:none;border-top:1px solid var(--line);padding:8px 20px;min-height:38px;display:flex;align-items:center;justify-content:space-between;gap:14px;font:400 9px var(--mono);color:var(--dim);letter-spacing:.08em;white-space:nowrap;overflow:hidden}
 
   #toasts{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:50}
   .toast{background:#151612;border:1px solid var(--line2);border-left:2px solid var(--amber);padding:11px 15px;font:500 11px var(--mono);letter-spacing:.04em;animation:tin .2s ease;max-width:320px}
   .toast.err{border-left-color:var(--err)}
   @keyframes tin{from{opacity:0;transform:translateY(6px)}}
 
-  @media (max-width:640px){ .brand span{display:none} #actions{flex-direction:column;align-items:stretch} #dl{justify-content:center} }
+  @media (max-width:680px){ .brand span{display:none} #actions{flex-direction:column;align-items:stretch} #dlbar{flex-direction:column} .dl{justify-content:center} }
 </style>
 </head>
 <body>
@@ -82,12 +84,12 @@
   <div class="brand">
     <svg viewBox="0 0 22 22" fill="none">
       <rect x="1.5" y="1.5" width="19" height="19" stroke="#F0A33A" stroke-width="1.5"/>
-      <path d="M1.5 15.5h19M1.5 11h19M1.5 6.5h19" stroke="#F0A33A" stroke-width="1.4"/>
+      <path d="M4 16c3-1.5 4.5-9 7-9s4 7.5 7 9" stroke="#F0A33A" stroke-width="1.4"/>
     </svg>
     <h1>RELIEF</h1>
-    <span>GAMBAR → HEIGHTMAP GRAYSCALE · UNTUK VECTRIC ASPIRE / CNC · 100% LOKAL</span>
+    <span>GAMBAR → HEIGHTMAP CNC · KUBAH KONTINU + DETAIL MIKRO · 100% LOKAL</span>
   </div>
-  <div class="chip">SIAP · TANPA MODEL · INSTAN</div>
+  <div class="chip" id="chip">SIAP · INSTAN</div>
 </header>
 
 <main>
@@ -99,8 +101,8 @@
       <div id="empty">
         <h2>JATUHKAN<br><em>GAMBAR</em>&nbsp;DI SINI</h2>
         <p>KLIK UNTUK MEMILIH · SERET &amp; LEPAS · TEMPEL <span class="kbd">Ctrl</span>+<span class="kbd">V</span><br>
-        HEIGHTMAP OTOMATIS — PUTIH = TINGGI, HITAM = RENDAH<br>
-        TANPA UNDUHAN MODEL · LANGSUNG BISA DIUNDUH</p>
+        PUTIH = TINGGI · HITAM = RENDAH · OUTPUT DIJAMIN FULL-RANGE 0–255<br>
+        PNG 16-BIT UNTUK ASPIRE · TANPA UNDUHAN · TANPA SERVER</p>
       </div>
 
       <canvas id="out" title="Klik untuk mengganti gambar"></canvas>
@@ -108,24 +110,25 @@
     </div>
 
     <div id="ctrl">
-      <div class="ctl"><label>DETAIL</label><input type="range" id="detail" min="0" max="400" value="200"><b id="detailV">200%</b></div>
+      <div class="ctl"><label>DETAIL</label><input type="range" id="detail" min="0" max="300" value="120"><b id="detailV">120%</b></div>
       <div class="ctl"><label>VOLUME</label><input type="range" id="volume" min="0" max="100" value="70"><b id="volumeV">70%</b></div>
-      <div class="ctl"><label>HALUS</label><input type="range" id="smooth" min="0" max="100" value="12"><b id="smoothV">12</b></div>
-      <button id="invert"><i></i>BALIK (HITAM=TINGGI)</button>
+      <div class="ctl"><label>RAMBAT</label><input type="range" id="ramp" min="2" max="40" value="16"><b id="rampV">16%</b></div>
+      <div class="ctl"><label>HALUS</label><input type="range" id="smooth" min="0" max="100" value="20"><b id="smoothV">20</b></div>
+      <button class="tgl" id="lightbg"><i></i>LATAR TERANG</button>
     </div>
 
     <div id="actions">
-      <div id="meta">Klik / jatuhkan berkas untuk memuat gambar · PNG keluaran siap diimpor ke Aspire</div>
-      <button id="dl" disabled>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 21h16"/></svg>
-        UNDUH PNG HEIGHTMAP
-      </button>
+      <div id="meta">Klik / jatuhkan berkas untuk memuat gambar</div>
+      <div id="dlbar">
+        <button class="dl pri" id="dl16" disabled>UNDUH PNG 16-BIT</button>
+        <button class="dl" id="dl8" disabled>PNG 8-BIT</button>
+      </div>
     </div>
   </div>
 </main>
 
 <footer>
-  <span>PUTIH = TINGGI · HITAM = RENDAH — IMPORT DI ASPIRE: “CREATE COMPONENT FROM AN IMAGE”, ATUR DEPTH SAAT PEMBENTUKAN</span>
+  <span>ASPIRE: IMPORT BITMAP → CREATE COMPONENT FROM AN IMAGE · JIKA VERSI LAMA TAK TERBACA 16-BIT, PAKAI 8-BIT</span>
   <span>DIPROSES DI PERANGKAT ANDA</span>
 </footer>
 
@@ -134,168 +137,262 @@
 
 <script>
 'use strict';
-const $ = s => document.querySelector(s);
-const els = {
-  frame: $('#frame'), empty: $('#empty'), out: $('#out'),
-  dl: $('#dl'), meta: $('#meta'), fileInput: $('#fileInput'),
-  detail: $('#detail'), volume: $('#volume'), smooth: $('#smooth'),
-  detailV: $('#detailV'), volumeV: $('#volumeV'), smoothV: $('#smoothV'),
-  invert: $('#invert'),
-};
+const $=s=>document.querySelector(s);
+const els={frame:$('#frame'),empty:$('#empty'),out:$('#out'),chip:$('#chip'),
+  meta:$('#meta'),fileInput:$('#fileInput'),lightbg:$('#lightbg'),
+  dl16:$('#dl16'),dl8:$('#dl8'),
+  detail:$('#detail'),volume:$('#volume'),ramp:$('#ramp'),smooth:$('#smooth'),
+  detailV:$('#detailV'),volumeV:$('#volumeV'),rampV:$('#rampV'),smoothV:$('#smoothV')};
 
-const MAX_DIM = 2048;                       // resolusi maksimum keluaran (naikkan bila perlu)
-const BASE_RADIUS = 0.03;                   // radius "tulang dasar" = 3% sisi terpendek
+const MAX_DIM=(navigator.deviceMemory&&navigator.deviceMemory<6)?1280:2048;
+const BG_TH=0.075;   // ambang latar gelap (flood-fill dari tepi)
+const PAD=0.06;      // bingkai kosong 6% agar emergence ramp selalu punya ruang
 
-const S = { W:0, H:0, lum:null, base:null, hbuf:null, t1:null, t2:null,
-            name:'gambar', loaded:false, srcW:0, srcH:0 };
-const P = { detail:2.0, volume:0.70, smooth:0.12, invert:false };
+const S={loaded:false,W:0,H:0,name:'gambar',srcW:0,srcH:0,alphaMode:false,
+  lum0:null,aMask:null,lum:null,mask:null,dist:null,dmax:1,lp:null,hp:null,
+  h:null,t1:null,t2:null,g16:null,mode:'—',cover:0,msP:0};
+const P={detail:1.2,volume:0.70,ramp:0.16,smooth:20,lightbg:false};
 
-function toast(msg, isErr=false){
-  const t=document.createElement('div');
-  t.className='toast'+(isErr?' err':'');
-  t.textContent=msg;
+function toast(msg,isErr=false){
+  const t=document.createElement('div');t.className='toast'+(isErr?' err':'');t.textContent=msg;
   $('#toasts').appendChild(t);
-  setTimeout(()=>{ t.style.transition='opacity .3s'; t.style.opacity='0'; setTimeout(()=>t.remove(),320); },3600);
+  setTimeout(()=>{t.style.transition='opacity .3s';t.style.opacity='0';setTimeout(()=>t.remove(),320);},3600);
 }
+const chip=t=>els.chip.textContent=t;
 
-/* ── box blur separable (running sum, O(n) per pass) ── */
+/* ── box blur separable, O(n) ── */
 function boxBlurH(src,dst,W,H,r){
-  const inv=1/(2*r+1), last=W-1;
-  for(let y=0;y<H;y++){
-    const row=y*W; let sum=0;
-    for(let x=-r;x<=r;x++) sum+=src[row+(x<0?0:x>last?last:x)];
-    for(let x=0;x<W;x++){
-      dst[row+x]=sum*inv;
-      const xa=x+r+1, xd=x-r;
-      sum+=src[row+(xa>last?last:xa)]-src[row+(xd<0?0:xd)];
-    }
-  }
+  const inv=1/(2*r+1),last=W-1;
+  for(let y=0;y<H;y++){const row=y*W;let sum=0;
+    for(let x=-r;x<=r;x++)sum+=src[row+(x<0?0:x>last?last:x)];
+    for(let x=0;x<W;x++){dst[row+x]=sum*inv;
+      const xa=x+r+1,xd=x-r;
+      sum+=src[row+(xa>last?last:xa)]-src[row+(xd<0?0:xd)];}}
 }
 function boxBlurV(src,dst,W,H,r){
-  const inv=1/(2*r+1), last=H-1;
-  for(let x=0;x<W;x++){
-    let sum=0;
-    for(let y=-r;y<=r;y++) sum+=src[(y<0?0:y>last?last:y)*W+x];
-    for(let y=0;y<H;y++){
-      dst[y*W+x]=sum*inv;
-      const ya=y+r+1, yd=y-r;
-      sum+=src[(ya>last?last:ya)*W+x]-src[(yd<0?0:yd)*W+x];
-    }
+  const inv=1/(2*r+1),last=H-1;
+  for(let x=0;x<W;x++){let sum=0;
+    for(let y=-r;y<=r;y++)sum+=src[(y<0?0:y>last?last:y)*W+x];
+    for(let y=0;y<H;y++){dst[y*W+x]=sum*inv;
+      const ya=y+r+1,yd=y-r;
+      sum+=src[(ya>last?last:ya)*W+x]-src[(yd<0?0:yd)*W+x];}}
+}
+
+/* ── exact euclidean distance transform (Felzenszwalb) ── */
+function edt1d(f,n,d,v,z){
+  let k=0;v[0]=0;z[0]=-1e12;z[1]=1e12;
+  for(let q=1;q<n;q++){
+    let s=((f[q]+q*q)-(f[v[k]]+v[k]*v[k]))/(2*q-2*v[k]);
+    while(s<=z[k]){k--;s=((f[q]+q*q)-(f[v[k]]+v[k]*v[k]))/(2*q-2*v[k]);}
+    k++;v[k]=q;z[k]=s;z[k+1]=1e12;
+  }
+  k=0;
+  for(let q=0;q<n;q++){
+    while(z[k+1]<q)k++;
+    const dq=q-v[k];d[q]=dq*dq+f[v[k]];
   }
 }
-function blurPass(src,dst,tmp,W,H,r){ boxBlurH(src,tmp,W,H,r); boxBlurV(tmp,dst,W,H,r); }
+function edt(mask,W,H,out){
+  const m=Math.max(W,H);
+  const f=new Float64Array(m),d=new Float64Array(m),v=new Int32Array(m),z=new Float64Array(m+1);
+  for(let x=0;x<W;x++){
+    for(let y=0;y<H;y++)f[y]=mask[y*W+x]?1e12:0;
+    edt1d(f,H,d,v,z);
+    for(let y=0;y<H;y++)out[y*W+x]=d[y];
+  }
+  for(let y=0;y<H;y++){
+    const row=y*W;
+    for(let x=0;x<W;x++)f[x]=out[row+x];
+    edt1d(f,W,d,v,z);
+    for(let x=0;x<W;x++)out[row+x]=Math.sqrt(d[x]);
+  }
+}
 
-/* ── muat gambar → luminance + tulang dasar (dihitung sekali) ── */
+/* ── muat gambar ── */
 async function loadImage(blob,name){
   let bmp;
-  try{ bmp=await createImageBitmap(blob,{imageOrientation:'from-image'}); }
-  catch(e){ toast('Gagal membaca gambar',true); return; }
+  try{bmp=await createImageBitmap(blob,{imageOrientation:'from-image'});}
+  catch(e){toast('Gagal membaca gambar',true);return;}
 
-  const sc=Math.min(1,MAX_DIM/Math.max(bmp.width,bmp.height));
-  const W=Math.max(2,Math.round(bmp.width*sc)), H=Math.max(2,Math.round(bmp.height*sc));
-  const c=document.createElement('canvas'); c.width=W; c.height=H;
+  const sc=Math.min(1,(MAX_DIM*0.88)/Math.max(bmp.width,bmp.height));
+  const w0=Math.max(2,Math.round(bmp.width*sc)),h0=Math.max(2,Math.round(bmp.height*sc));
+  const padX=Math.round(w0*PAD),padY=Math.round(h0*PAD);
+  const W=w0+padX*2,H=h0+padY*2,n=W*H;
+
+  const c=document.createElement('canvas');c.width=W;c.height=H;
   const x=c.getContext('2d',{willReadFrequently:true});
-  x.fillStyle='#000'; x.fillRect(0,0,W,H);      // komposit di atas hitam
-  x.drawImage(bmp,0,0,W,H);
+  x.fillStyle='#000';x.fillRect(0,0,W,H);
+  x.drawImage(bmp,padX,padY,w0,h0);
+  const d=x.getImageData(0,0,W,H).data;
+
+  const lum=new Float32Array(n);let transp=0;
+  const aMask=new Uint8Array(n);
+  for(let i=0;i<n;i++){
+    const o=i*4,a=d[o+3];
+    if(a<250)transp++;
+    aMask[i]=a>=128?1:0;
+    lum[i]=(d[o]*0.2126+d[o+1]*0.7152+d[o+2]*0.0722)/255*(a/255);
+  }
+
+  S.alphaMode=transp>n*0.02;
+  S.aMask=S.alphaMode?aMask:null;
+  S.lum0=lum;S.W=W;S.H=H;
+  S.name=(name||'gambar').replace(/\.[^.]+$/,'');
+  S.srcW=bmp.width;S.srcH=bmp.height;
+  S.h=new Float32Array(n);S.t1=new Float32Array(n);S.t2=new Float32Array(n);
+  S.g16=new Uint16Array(n);
   bmp.close&&bmp.close();
 
-  const d=x.getImageData(0,0,W,H).data, n=W*H;
-  const lum=new Float32Array(n);
-  for(let i=0;i<n;i++){
-    const o=i*4;
-    lum[i]=(d[o]*0.2126+d[o+1]*0.7152+d[o+2]*0.0722)/255;
-  }
-
-  S.lum=lum; S.W=W; S.H=H;
-  S.name=(name||'gambar').replace(/\.[^.]+$/,'');
-  S.srcW=bmp.width||W; S.srcH=bmp.height||H;
-  S.hbuf=new Float32Array(n); S.t1=new Float32Array(n); S.t2=new Float32Array(n);
-
-  // tulang dasar: blur besar 2 pass (≈ gaussian) — bentuk menara/volume umum
-  const r=Math.max(2,Math.round(Math.min(W,H)*BASE_RADIUS));
-  let cur=Float32Array.from(lum), nxt=new Float32Array(n), tmp=new Float32Array(n);
-  blurPass(cur,nxt,tmp,W,H,r); [cur,nxt]=[nxt,cur];
-  blurPass(cur,nxt,tmp,W,H,r); [cur,nxt]=[nxt,cur];
-  S.base=cur;
-
   S.loaded=true;
-  els.out.style.display='block';
-  els.empty.style.display='none';
-  els.dl.disabled=false;
-  scheduleRebuild(true);
+  els.out.style.display='block';els.empty.style.display='none';
+  els.dl16.disabled=els.dl8.disabled=false;
+  chip('MEMPROSES…');
+  setTimeout(prepare,30); // beri kesempatan UI merender
 }
 
-/* ── bangun heightmap dari parameter saat ini ── */
+/* ── mask + distance field + auto-level (dihitung sekali per gambar) ── */
+function prepare(){
+  const t0=performance.now();
+  const{W,H,lum0}=S,n=W*H,mind=Math.min(W,H);
+
+  const lum=new Float32Array(n);
+  if(P.lightbg)for(let i=0;i<n;i++)lum[i]=1-lum0[i];else lum.set(lum0);
+  S.lum=lum;
+
+  /* mask subjek */
+  const mask=new Uint8Array(n);
+  if(S.alphaMode){
+    for(let i=0;i<n;i++)mask[i]=S.aMask[i];
+  }else{
+    const bg=new Uint8Array(n),stack=new Int32Array(n);let sp=0;
+    const push=i=>{if(!bg[i]&&lum[i]<BG_TH){bg[i]=1;stack[sp++]=i;}};
+    for(let x=0;x<W;x++){push(x);push((H-1)*W+x);}
+    for(let y=0;y<H;y++){push(y*W);push(y*W+W-1);}
+    while(sp>0){const i=stack[--sp],xx=i%W,yy=(i/W)|0;
+      if(xx>0)push(i-1);if(xx<W-1)push(i+1);
+      if(yy>0)push(i-W);if(yy<H-1)push(i+W);}
+    for(let i=0;i<n;i++)mask[i]=bg[i]?0:1;
+  }
+  /* rapikan mask: tutup lubang pinhole & buang bintik */
+  for(let i=0;i<n;i++)S.t1[i]=mask[i];
+  boxBlurH(S.t1,S.t2,W,H,1);boxBlurV(S.t2,S.t1,W,H,1);
+  for(let i=0;i<n;i++)mask[i]=S.t1[i]>0.5?1:0;
+
+  let cnt=0;for(let i=0;i<n;i++)cnt+=mask[i];
+  let mode=S.alphaMode?'ALPHA':'LATAR-GELAP';
+  if(cnt<n*0.02||cnt>n*0.995){mask.fill(1);cnt=n;mode='FULL-FRAME';}
+  S.mask=mask;S.mode=mode;S.cover=cnt/n;
+
+  /* distance field → kubah */
+  const dist=new Float32Array(n);
+  edt(mask,W,H,dist);
+  let dmax=0;for(let i=0;i<n;i++)if(dist[i]>dmax)dmax=dist[i];
+  S.dist=dist;S.dmax=Math.max(1,dmax);
+
+  /* auto-level luminance DI DALAM subjek → jaminan full-range */
+  const hist=new Uint32Array(256);let m2=0;
+  for(let i=0;i<n;i++)if(mask[i]){hist[Math.min(255,(lum[i]*255)|0)]++;m2++;}
+  if(!m2)m2=n;
+  let acc=0,lo=0,hi=255;
+  for(let b=0;b<256;b++){acc+=hist[b];if(acc>=m2*0.02){lo=b;break;}}
+  acc=0;for(let b=255;b>=0;b--){acc+=hist[b];if(acc>=m2*0.98){hi=b;break;}}
+  const rng=Math.max(8,hi-lo)/255;
+  const Lm=S.t1;
+  for(let i=0;i<n;i++){let v=(lum[i]-lo/255)/rng;Lm[i]=v<0?0:v>1?1:v;}
+
+  /* lp = bentuk besar (hierarki) · hp = detail mikro */
+  const rL=Math.max(3,Math.round(0.02*mind));
+  const lp=new Float32Array(n),hp=new Float32Array(n);
+  boxBlurH(Lm,S.t2,W,H,rL);boxBlurV(S.t2,lp,W,H,rL);
+  boxBlurH(lp,S.t2,W,H,rL);boxBlurV(S.t2,lp,W,H,rL);
+  for(let i=0;i<n;i++)hp[i]=Lm[i]-lp[i];
+  S.lp=lp;S.hp=hp;
+
+  S.msP=Math.round(performance.now()-t0);
+  chip('SIAP · INSTAN');
+  rebuild();
+}
+
+/* ── bangun heightmap dari parameter slider ── */
 function rebuild(){
-  if(!S.loaded) return;
-  const {lum,base,hbuf,W,H}=S, n=W*H;
-  const k=P.detail, V=P.volume;
+  if(!S.loaded||!S.dist)return;
+  const{W,H,dist,dmax,lp,hp,h,t1,t2}=S,n=W*H,mind=Math.min(W,H);
+  const gamma=0.9-0.55*P.volume;          // VOLUME → kubah penuh
+  const floor=0.08+0.35*P.volume;         // VOLUME → angkat area gelap
+  const rampPx=Math.max(4,mind*P.ramp);   // RAMBAT → emergence S-curve
+  const k=P.detail*1.5;                   // DETAIL → ampli high-pass
 
-  // h = volume dasar + residual detail (bagian lebih terang dari dasar diperkuat)
   for(let i=0;i<n;i++){
-    let h=base[i]*V+(lum[i]-base[i])*k;
-    if(h<0)h=0; else if(h>1)h=1;   // alur dalam "dipahat sampai lantai"
-    hbuf[i]=h;
+    const d=dist[i];
+    if(d<=0){h[i]=0;continue;}
+    const tt=d/rampPx,ss=tt>=1?1:tt*tt*(3-2*tt);
+    const dd=d/dmax;
+    const mound=(dd>=1?1:Math.pow(dd,gamma))*ss;
+    let v=mound*(floor+(1-floor)*lp[i])+k*hp[i]*ss;
+    h[i]=v<0?0:v>1?1:v;
   }
 
-  // penghalusan ringan (hilangkan noise JPEG)
-  const r=Math.round(P.smooth*Math.min(W,H)*0.008);
-  if(r>0){
-    boxBlurH(hbuf,S.t1,W,H,r); boxBlurV(S.t1,S.t2,W,H,r); hbuf.set(S.t2);
-    for(let i=0;i<n;i++){ if(hbuf[i]<0)hbuf[i]=0; else if(hbuf[i]>1)hbuf[i]=1; }
+  const rS=Math.round(P.smooth/100*0.014*mind);
+  if(rS>0){
+    boxBlurH(h,t1,W,H,rS);boxBlurV(t1,t2,W,H,rS);h.set(t2);
+    for(let i=0;i<n;i++){if(h[i]<0)h[i]=0;else if(h[i]>1)h[i]=1;}
   }
 
-  // peregangan: persentil tinggi → putih penuh, lantai tetap hitam
-  const hist=new Uint32Array(256);
-  for(let i=0;i<n;i++) hist[(hbuf[i]*255)|0]++;
-  let acc=0, hi=255;
-  for(let b=255;b>=0;b--){ acc+=hist[b]; if(acc>=n*0.005){ hi=b; break; } }
-  const scale=hi<=3?1:255/hi;
+  /* peregangan persentil di dalam subjek → putih & hitam terjamin */
+  const hist=new Uint32Array(256);let cnt=0;
+  for(let i=0;i<n;i++)if(dist[i]>0){hist[Math.min(255,(h[i]*255)|0)]++;cnt++;}
+  if(!cnt)cnt=n;
+  let acc=0,lo=0,hiI=255;
+  for(let b=0;b<256;b++){acc+=hist[b];if(acc>=cnt*0.004){lo=b;break;}}
+  acc=0;for(let b=255;b>=0;b--){acc+=hist[b];if(acc>=cnt*0.996){hiI=b;break;}}
+  const rng=Math.max(1,hiI-lo)/255;
 
-  const inv=P.invert;
-  els.out.width=W; els.out.height=H;
+  els.out.width=W;els.out.height=H;
   const ctx=els.out.getContext('2d');
-  const img=ctx.createImageData(W,H), px=img.data;
+  const img=ctx.createImageData(W,H),px=img.data,g16=S.g16;
   for(let i=0;i<n;i++){
-    let v=hbuf[i]*scale/255;
-    if(v>1)v=1;
-    if(inv)v=1-v;
-    const g=(v*255)|0, o=i*4;
-    px[o]=px[o+1]=px[o+2]=g; px[o+3]=255;
+    let v=(h[i]-lo/255)/rng;v=v<0?0:v>1?1:v;
+    g16[i]=(v*65535+0.5)|0;
+    const g=(v*255.999)|0,o=i*4;
+    px[o]=px[o+1]=px[o+2]=g;px[o+3]=255;
   }
   ctx.putImageData(img,0,0);
 
   els.meta.innerHTML=
-    `<b>${S.srcW}×${S.srcH}</b> → <b>${W}×${H}</b> PX · DETAIL <b>${Math.round(k*100)}%</b> · VOLUME <b>${Math.round(V*100)}%</b><br>`+
-    `PNG GRAYSCALE — SIAP DIIMPORT KE ASPIRE`;
+    `MODE <b>${S.mode}</b> · SUBJEK <b>${Math.round(S.cover*100)}%</b> · `+
+    `<b>${S.srcW}×${S.srcH}</b> → <b>${W}×${H}</b> PX · SIAP IMPORT`;
 }
 
 let tmr=0;
-function scheduleRebuild(now){
-  clearTimeout(tmr);
-  tmr=setTimeout(rebuild, now?0:90);
-}
+const scheduleRebuild=()=>{clearTimeout(tmr);tmr=setTimeout(rebuild,90);};
 
 /* ── kontrol ── */
 function paintSlider(el){
   const p=(el.value-el.min)/(el.max-el.min)*100;
   el.style.background=`linear-gradient(90deg,#F0A33A ${p}%,rgba(234,231,220,.22) ${p}%)`;
 }
-els.detail.addEventListener('input',()=>{ P.detail=+els.detail.value/100;
-  els.detailV.textContent=els.detail.value+'%'; paintSlider(els.detail); scheduleRebuild(); });
-els.volume.addEventListener('input',()=>{ P.volume=+els.volume.value/100;
-  els.volumeV.textContent=els.volume.value+'%'; paintSlider(els.volume); scheduleRebuild(); });
-els.smooth.addEventListener('input',()=>{ P.smooth=+els.smooth.value/100;
-  els.smoothV.textContent=els.smooth.value; paintSlider(els.smooth); scheduleRebuild(); });
-els.invert.addEventListener('click',()=>{ P.invert=!P.invert;
-  els.invert.classList.toggle('on',P.invert); scheduleRebuild(true); });
+els.detail.addEventListener('input',()=>{P.detail=+els.detail.value/100;
+  els.detailV.textContent=els.detail.value+'%';paintSlider(els.detail);scheduleRebuild();});
+els.volume.addEventListener('input',()=>{P.volume=+els.volume.value/100;
+  els.volumeV.textContent=els.volume.value+'%';paintSlider(els.volume);scheduleRebuild();});
+els.ramp.addEventListener('input',()=>{P.ramp=+els.ramp.value/100;
+  els.rampV.textContent=els.ramp.value+'%';paintSlider(els.ramp);scheduleRebuild();});
+els.smooth.addEventListener('input',()=>{P.smooth=+els.smooth.value;
+  els.smoothV.textContent=els.smooth.value;paintSlider(els.smooth);scheduleRebuild();});
+els.lightbg.addEventListener('click',()=>{
+  if(!S.loaded)return;
+  P.lightbg=!P.lightbg;
+  els.lightbg.classList.toggle('on',P.lightbg);
+  chip('MEMPROSES…');
+  setTimeout(prepare,30);
+});
 
 /* ── sumber gambar ── */
 function useFile(f){
-  if(!f||!f.type.startsWith('image/')){ toast('Berkas bukan gambar',true); return; }
+  if(!f||!f.type.startsWith('image/')){toast('Berkas bukan gambar',true);return;}
   loadImage(f,f.name);
 }
-els.fileInput.addEventListener('change',e=>{ useFile(e.target.files[0]); e.target.value=''; });
+els.fileInput.addEventListener('change',e=>{useFile(e.target.files[0]);e.target.value='';});
 els.empty.addEventListener('click',()=>els.fileInput.click());
 els.out.addEventListener('click',()=>els.fileInput.click());
 ['dragover','drop'].forEach(ev=>window.addEventListener(ev,e=>e.preventDefault()));
@@ -307,23 +404,64 @@ els.frame.addEventListener('drop',e=>{
 });
 window.addEventListener('paste',e=>{
   const it=[...e.clipboardData.items].find(i=>i.type.startsWith('image/'));
-  if(it) useFile(it.getAsFile()) || loadImage(it.getAsFile(),'tempelan');
+  if(it)useFile(it.getAsFile());
 });
 
-/* ── unduh ── */
-els.dl.addEventListener('click',()=>{
-  if(!S.loaded) return;
-  els.out.toBlob(b=>{
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(b);
-    a.download=`heightmap-${S.name}.png`;
-    a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),3000);
-    toast('Tersimpan: heightmap-'+S.name+'.png');
-  },'image/png');
+/* ── ekspor PNG 16-bit grayscale (encoder built-in, tanpa library) ── */
+const crcTable=(()=>{const t=new Uint32Array(256);
+  for(let n2=0;n2<256;n2++){let c=n2;
+    for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n2]=c;}return t;})();
+function crc32(b,s,l){let c=0xFFFFFFFF;
+  for(let i=s;i<s+l;i++)c=crcTable[(c^b[i])&0xFF]^(c>>>8);return(c^0xFFFFFFFF)>>>0;}
+function adler32(b){let a=1,s=0;
+  for(let i=0;i<b.length;i++){a=(a+b[i])%65521;s=(s+a)%65521;}return((s<<16)|a)>>>0;}
+function chunk(type,data){
+  const out=new Uint8Array(12+data.length),dv=new DataView(out.buffer);
+  dv.setUint32(0,data.length);
+  for(let i=0;i<4;i++)out[4+i]=type.charCodeAt(i);
+  out.set(data,8);
+  dv.setUint32(8+data.length,crc32(out,4,4+data.length));
+  return out;
+}
+function png16(gray,W,H){
+  const raw=new Uint8Array(H*(1+W*2));let p=0;
+  for(let y=0;y<H;y++){raw[p++]=0;
+    for(let x=0;x<W;x++){const v=gray[y*W+x];raw[p++]=v>>8;raw[p++]=v&255;}}
+  const nB=Math.ceil(raw.length/65535);
+  const z=new Uint8Array(2+raw.length+nB*5+4);
+  z[0]=0x78;z[1]=0x01;
+  let q=2,off=0;
+  while(off<raw.length){
+    const len=Math.min(65535,raw.length-off),fin=off+len>=raw.length?1:0;
+    z[q++]=fin;z[q++]=len&255;z[q++]=len>>8;
+    z[q++]=(~len)&255;z[q++]=((~len)>>8)&255;
+    z.set(raw.subarray(off,off+len),q);q+=len;off+=len;
+  }
+  const ad=adler32(raw);
+  z[q++]=(ad>>>24)&255;z[q++]=(ad>>>16)&255;z[q++]=(ad>>>8)&255;z[q++]=ad&255;
+  const ihdr=new Uint8Array(13),dv=new DataView(ihdr.buffer);
+  dv.setUint32(0,W);dv.setUint32(4,H);
+  ihdr[8]=16;ihdr[9]=0;ihdr[10]=0;ihdr[11]=0;ihdr[12]=0;
+  const sig=new Uint8Array([137,80,78,71,13,10,26,10]);
+  return new Blob([sig,chunk('IHDR',ihdr),chunk('IDAT',z),chunk('IEND',new Uint8Array(0))],{type:'image/png'});
+}
+function save(blob,name){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('Tersimpan: '+name);
+}
+els.dl16.addEventListener('click',()=>{
+  if(!S.loaded)return;
+  save(png16(S.g16,S.W,S.H),`heightmap-16bit-${S.name}.png`);
+});
+els.dl8.addEventListener('click',()=>{
+  if(!S.loaded)return;
+  els.out.toBlob(b=>save(b,`heightmap-8bit-${S.name}.png`),'image/png');
 });
 
-paintSlider(els.detail); paintSlider(els.volume); paintSlider(els.smooth);
+paintSlider(els.detail);paintSlider(els.volume);
+paintSlider(els.ramp);paintSlider(els.smooth);
 </script>
 </body>
 </html>
