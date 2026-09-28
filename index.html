@@ -1,1649 +1,812 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+<!--
+  ═══════════════════════════════════════════════════════════════
+  KEDALAMAN — Estimasi kedalaman monokuler, sepenuhnya di peramban
+  Model : Depth Anything V2-S (ONNX, via transformers.js)
+  Deploy: simpan sebagai index.html → push ke repo GitHub →
+          Settings → Pages → Deploy from branch (root). Selesai.
+  ═══════════════════════════════════════════════════════════════
+-->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BASRELIEF — Atelier Depth Map untuk CNC</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 44'%3E%3Cg fill='none' stroke='%23c8a44e' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M8 42 A24 24 0 0 1 56 42'/%3E%3Cpath d='M18 42 A14 14 0 0 1 46 42'/%3E%3Cline x1='32' y1='22' x2='32' y2='13'/%3E%3Cline x1='43' y1='23' x2='46' y2='17.8'/%3E%3Cline x1='21' y1='23' x2='18' y2='17.8'/%3E%3Cline x1='0' y1='42' x2='64' y2='42'/%3E%3C/g%3E%3C/svg%3E">
+<title>KEDALAMAN — Estimasi Depth Monokuler di Peramban</title>
+<meta name="description" content="Ubah foto menjadi peta kedalaman dengan Depth Anything V2. Berjalan sepenuhnya lokal di browser — tanpa server, tanpa upload.">
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect x="3" y="3" width="26" height="26" fill="none" stroke="%23F0A33A" stroke-width="2"/><path d="M16 3v26M3 16h26" stroke="%23F0A33A" stroke-width="1" opacity=".5"/><circle cx="16" cy="16" r="5" fill="none" stroke="%23F0A33A" stroke-width="2"/></svg>'>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Limelight&family=Jost:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --bg:#0b0b09; --bg2:#070706; --panel:#0e0e0b;
-  --line:#2a2a20; --line2:#1b1b14;
-  --ink:#e9e2cd; --muted:#8f8a6f; --faint:#5a563e;
-  --brass:#c8a44e; --brass-hi:#e5c873; --brass-dim:#8a7431;
-  --err:#c2703f;
-  --f-d:'Limelight',serif; --f-b:'Jost',sans-serif; --f-m:'IBM Plex Mono',monospace;
-}
-html,body{height:100%}
-body{background:var(--bg);color:var(--ink);font-family:var(--f-b);font-weight:300;-webkit-font-smoothing:antialiased;overflow-x:hidden}
-::selection{background:var(--brass);color:#141208}
-::-webkit-scrollbar{width:8px;height:8px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:#26261b}
-button{font-family:var(--f-b)}
-svg.lucide{width:14px;height:14px;stroke-width:1.75}
+  :root{
+    --bg:#0D0E0B; --bg2:#131410;
+    --line:rgba(234,231,220,.09); --line2:rgba(234,231,220,.22);
+    --ink:#EBE8DE; --dim:#8E8A7C;
+    --amber:#F0A33A; --err:#E5484D;
+    --mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:'Archivo',sans-serif;overflow:hidden}
+  ::selection{background:var(--amber);color:#141310}
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:rgba(234,231,220,.14)}
+  ::-webkit-scrollbar-track{background:transparent}
+  button{font-family:inherit}
 
-header{display:flex;align-items:center;gap:16px;padding:0 28px;height:64px;border-bottom:1px solid var(--line);position:relative}
-header::after{content:'';position:absolute;left:0;right:0;bottom:-4px;height:1px;background:var(--line2)}
-.brand{display:flex;align-items:center;gap:14px}
-.brand .sun{color:var(--brass);width:34px;height:24px;flex:none}
-.wordmark{font-family:var(--f-d);font-size:19px;letter-spacing:.30em;color:var(--ink);line-height:1}
-.tagline{font-family:var(--f-m);font-size:8.5px;letter-spacing:.34em;color:var(--muted);margin-top:4px}
-.hspace{flex:1}
-.hchip{display:flex;align-items:center;gap:8px;font-family:var(--f-m);font-size:9.5px;letter-spacing:.16em;color:var(--muted);border:1px solid var(--line);padding:6px 12px}
-.hchip .dot{width:6px;height:6px;background:var(--faint);transform:rotate(45deg);transition:background .3s}
-.hchip.ok .dot{background:var(--brass)}
-.hchip.warn .dot{background:var(--err)}
-.btn-ghost{background:none;border:1px solid var(--line);color:var(--muted);font-size:10px;letter-spacing:.22em;font-weight:500;padding:8px 16px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:.15s}
-.btn-ghost:hover{border-color:var(--brass-dim);color:var(--brass-hi)}
+  #app{height:100dvh;display:grid;grid-template-rows:57px minmax(0,1fr)}
 
-main{display:grid;grid-template-columns:346px minmax(0,1fr);min-height:calc(100vh - 64px)}
-aside{border-right:1px solid var(--line);padding:20px 22px 30px;overflow-y:auto;position:sticky;top:0;max-height:calc(100vh - 64px)}
-.stage{display:flex;flex-direction:column;padding:20px 26px 16px;min-width:0;user-select:none}
+  /* ── header ─────────────────────────────── */
+  header{display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:14px;min-width:0}
+  .brand .mark{width:22px;height:22px;flex:none}
+  .brand h1{font-size:15px;font-weight:700;font-stretch:122%;letter-spacing:.16em;white-space:nowrap}
+  .brand .sub{font:500 10px/1 var(--mono);color:var(--dim);letter-spacing:.12em;padding-left:14px;border-left:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chip{display:flex;align-items:center;gap:9px;font:500 10px var(--mono);letter-spacing:.14em;color:var(--dim);border:1px solid var(--line);padding:8px 11px;flex:none}
+  .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--dim);flex:none}
+  .chip.on .dot{background:var(--amber);box-shadow:0 0 0 3px rgba(240,163,58,.15)}
+  .chip.busy .dot{animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.25}}
 
-section{margin-bottom:26px}
-.sec-head{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--line2);padding-bottom:8px;margin-bottom:14px}
-.sec-num{font-family:var(--f-m);color:var(--brass);font-size:10px}
-.sec-title{font-size:11px;letter-spacing:.28em;font-weight:500;color:var(--ink)}
-.sec-hint{font-size:9px;color:var(--faint);letter-spacing:.06em;margin:-6px 0 12px;line-height:1.6}
+  /* ── layout utama ───────────────────────── */
+  main{display:grid;grid-template-columns:308px minmax(0,1fr);min-height:0}
+  aside{border-right:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column;background:var(--bg)}
+  .blk{padding:16px 18px 18px;border-bottom:1px solid var(--line)}
+  .blk h2{font:600 10px/1 var(--mono);letter-spacing:.22em;color:var(--dim);margin-bottom:13px;display:flex;gap:10px}
+  .blk h2 em{color:var(--amber);font-style:normal}
 
-.mini-seg{display:flex;margin-left:auto;border:1px solid var(--line);align-self:center}
-.mini-seg button{background:none;border:0;color:var(--muted);font-size:9px;letter-spacing:.16em;font-weight:500;padding:4px 11px;cursor:pointer;transition:.15s}
-.mini-seg button.on{background:var(--brass);color:#161307;font-weight:600}
-.mini-seg.stand{margin:0 0 12px;display:inline-flex}
+  /* sumber */
+  #drop{border:1px dashed var(--line2);padding:13px 14px;display:flex;align-items:center;gap:13px;cursor:pointer;transition:border-color .15s,background .15s}
+  #drop:hover{border-color:var(--amber);background:rgba(240,163,58,.04)}
+  #drop svg{width:20px;height:20px;color:var(--amber);flex:none}
+  #drop b{display:block;font:600 12px var(--mono);letter-spacing:.05em}
+  #drop span{display:block;font:400 9px var(--mono);color:var(--dim);letter-spacing:.07em;margin-top:4px}
+  .srcmeta{font:400 9px var(--mono);color:var(--dim);letter-spacing:.12em;margin-top:9px}
+  #samples{display:flex;gap:6px;margin-top:10px}
+  #samples button{flex:1;height:46px;padding:0;border:1px solid var(--line);background:none;cursor:pointer;overflow:hidden;transition:border-color .15s}
+  #samples img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.8) contrast(.95);transition:filter .15s}
+  #samples button:hover{border-color:var(--amber)}
+  #samples button:hover img{filter:none}
+  #samples button:disabled{opacity:.4;cursor:wait}
 
-.drop{position:relative;border:1px dashed #2c2c22;background-color:var(--bg2);padding:24px 14px;text-align:center;cursor:pointer;transition:border-color .2s,background-color .2s;
-  background-image:
-   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim)),
-   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim)),
-   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim)),
-   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim));
-  background-repeat:no-repeat;
-  background-size:14px 1px,1px 14px,14px 1px,1px 14px,14px 1px,1px 14px,14px 1px,1px 14px;
-  background-position:left top,left top,right top,right top,left bottom,left bottom,right bottom,right bottom}
-.drop:hover,.drop.over{border-color:var(--brass-dim);background-color:#0c0c09}
-.drop svg{width:22px;height:16px;color:var(--brass);margin:0 auto}
-.drop-title{font-size:12.5px;letter-spacing:.16em;font-weight:400;margin-top:10px;color:var(--ink)}
-.drop-sub{font-family:var(--f-m);font-size:9px;color:var(--muted);margin-top:6px;letter-spacing:.1em;line-height:1.7}
-#fileMeta{font-family:var(--f-m);font-size:9px;color:var(--brass);letter-spacing:.08em;margin-top:10px;text-align:center;min-height:12px;word-break:break-all}
+  /* colormap */
+  .cmap{display:flex;align-items:center;gap:12px;padding:9px 8px;margin:0 -8px;cursor:pointer;border-left:2px solid transparent;transition:background .12s}
+  .cmap:hover{background:rgba(234,231,220,.03)}
+  .cmap .sw{flex:1;height:9px;background:var(--line)}
+  .cmap span{font:500 10px var(--mono);letter-spacing:.14em;color:var(--dim);width:88px;flex:none}
+  .cmap.on{border-left-color:var(--amber)}
+  .cmap.on span{color:var(--ink)}
 
-.prow{display:flex;justify-content:space-between;align-items:center;padding:7px 2px;border-bottom:1px dashed var(--line2);font-size:10.5px;letter-spacing:.14em;color:var(--ink)}
-.pstate{font-family:var(--f-m);font-size:9px;letter-spacing:.08em;color:var(--faint)}
-.pstate.ok{color:var(--brass)}
-.pstate.fail{color:var(--err)}
-.row-tools{display:flex;gap:8px;margin-top:12px}
-select{appearance:none;-webkit-appearance:none;background:var(--bg2);border:1px solid var(--line);color:var(--ink);font-family:var(--f-m);font-size:10px;letter-spacing:.1em;padding:8px 10px;cursor:pointer;flex:1}
-select:focus{outline:none;border-color:var(--brass-dim)}
-.btn-mini{background:none;border:1px solid var(--line);color:var(--muted);cursor:pointer;padding:8px 12px;display:flex;align-items:center;gap:6px;transition:.15s}
-.btn-mini:hover{border-color:var(--brass-dim);color:var(--brass-hi)}
-.btn-mini:disabled{opacity:.35;pointer-events:none}
+  /* kontrol */
+  .row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font:500 11px var(--mono);letter-spacing:.08em}
+  .row b{color:var(--amber);font-weight:600}
+  .switch{width:32px;height:17px;border:1px solid var(--line2);position:relative;cursor:pointer;background:none;flex:none}
+  .switch i{position:absolute;top:2px;left:2px;width:11px;height:11px;background:var(--dim);transition:.15s}
+  .switch.on{border-color:var(--amber)}
+  .switch.on i{left:17px;background:var(--amber)}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:2px;background:var(--line2);outline:none;margin:8px 0 2px;cursor:ew-resize}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:var(--amber);border:none;cursor:ew-resize}
+  input[type=range]::-moz-range-thumb{width:13px;height:13px;background:var(--amber);border:none;border-radius:0;cursor:ew-resize}
 
-.ctl{margin-bottom:15px}
-.ctl.off{opacity:.35;pointer-events:none}
-.ctl-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:1px}
-.ctl-top label{font-size:10px;letter-spacing:.20em;color:var(--muted);font-weight:500}
-.ctl-top output{font-family:var(--f-m);font-size:10.5px;color:var(--brass);font-variant-numeric:tabular-nums}
-.ctl .hint{font-size:9px;color:var(--faint);letter-spacing:.06em;margin-top:1px}
-input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:24px;width:100%;cursor:pointer}
-input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--line)}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;background:var(--brass);border:1px solid #0b0b09;margin-top:-4.5px;transform:rotate(45deg)}
-input[type=range]::-webkit-slider-thumb:hover{background:var(--brass-hi)}
-input[type=range]::-moz-range-track{height:2px;background:var(--line)}
-input[type=range]::-moz-range-thumb{width:11px;height:11px;background:var(--brass);border:1px solid #0b0b09;border-radius:0}
+  /* ekspor & catatan */
+  .btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border:1px solid var(--line2);background:none;color:var(--ink);font:600 11px var(--mono);letter-spacing:.18em;cursor:pointer;transition:.15s}
+  .btn svg{width:14px;height:14px}
+  .btn:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+  .note{padding:16px 18px;font:400 10px/1.8 var(--mono);color:var(--dim);letter-spacing:.03em;margin-top:auto}
 
-.seg{display:flex;border:1px solid var(--line)}
-.seg button{flex:1;background:none;border:0;color:var(--muted);font-size:10px;letter-spacing:.22em;font-weight:500;padding:9px 0;cursor:pointer;transition:.15s}
-.seg button.on{background:var(--brass);color:#161307;font-weight:600}
-.mat-hint{font-size:9px;color:var(--faint);letter-spacing:.08em;margin-top:8px;line-height:1.6}
+  /* ── stage ──────────────────────────────── */
+  #stage{display:flex;flex-direction:column;min-width:0;min-height:0}
+  #stagebar{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:0 18px;height:46px;flex:none}
+  .tabs{display:flex;height:100%}
+  .tab{display:flex;align-items:center;gap:9px;padding:0 18px;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;color:var(--dim);font:600 11px var(--mono);letter-spacing:.18em;cursor:pointer;transition:color .15s}
+  .tab svg{width:14px;height:14px}
+  .tab.on{color:var(--amber);border-bottom-color:var(--amber)}
+  .tab:disabled{opacity:.35;cursor:not-allowed}
+  .hint{font:400 9px var(--mono);color:var(--dim);letter-spacing:.14em;text-align:right}
 
-.numrow{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.numrow label{font-size:10px;letter-spacing:.20em;color:var(--muted);font-weight:500;flex:1}
-input[type=number]{width:82px;background:var(--bg2);border:1px solid var(--line);color:var(--brass);font-family:var(--f-m);font-size:11px;padding:7px 9px;text-align:right}
-input[type=number]:focus{outline:none;border-color:var(--brass-dim)}
-.numrow .unit{font-family:var(--f-m);font-size:9px;color:var(--faint)}
-.chk{display:flex;align-items:center;gap:10px;cursor:pointer;margin:12px 0 0}
-.chk input{display:none}
-.chk .box{width:13px;height:13px;border:1px solid var(--line);flex:none;transition:.15s;position:relative}
-.chk input:checked + .box{background:var(--brass);border-color:var(--brass)}
-.chk .lbl{font-size:10px;letter-spacing:.20em;color:var(--muted);font-weight:500;line-height:1.5}
+  #viewport{position:relative;flex:1;min-height:0;margin:16px}
+  #viewport.hot #frame{border-color:var(--amber)}
+  #frame{position:absolute;inset:0;border:1px solid var(--line);pointer-events:none;z-index:1}
+  .tick{position:absolute;width:12px;height:12px;z-index:1;pointer-events:none;--tc:var(--line2);transition:filter .3s}
+  .tick.tl{top:-1px;left:-1px;border-top:2px solid var(--tc);border-left:2px solid var(--tc)}
+  .tick.tr{top:-1px;right:-1px;border-top:2px solid var(--tc);border-right:2px solid var(--tc)}
+  .tick.bl{bottom:-1px;left:-1px;border-bottom:2px solid var(--tc);border-left:2px solid var(--tc)}
+  .tick.br{bottom:-1px;right:-1px;border-bottom:2px solid var(--tc);border-right:2px solid var(--tc)}
+  #viewport.live .tick{--tc:var(--amber)}
+  .edge{position:absolute;font:500 9px var(--mono);letter-spacing:.24em;color:var(--dim);z-index:1;pointer-events:none;background:var(--bg);padding:0 7px}
+  .lbl-tl{top:-7px;left:14px}
+  .lbl-br{bottom:-7px;right:14px}
 
-.btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:12px 0;font-size:11px;letter-spacing:.24em;font-weight:500;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink);transition:.15s}
-.btn:hover{border-color:var(--brass-dim);color:var(--brass-hi)}
-.btn.primary{background:var(--brass);border-color:var(--brass);color:#161307;font-weight:600}
-.btn.primary:hover{background:var(--brass-hi)}
-.btn:disabled{opacity:.3;pointer-events:none}
-.btn + .btn{margin-top:9px}
+  #contours{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+  #contours ellipse{animation:drift 28s linear infinite}
+  @keyframes drift{to{stroke-dashoffset:-300}}
 
-.tabs{display:flex;gap:26px;border-bottom:1px solid var(--line);padding-left:4px}
-.tabs button{background:none;border:0;color:var(--muted);font-size:11px;letter-spacing:.26em;font-weight:500;padding:10px 2px 12px;cursor:pointer;position:relative;transition:color .15s}
-.tabs button:hover{color:var(--ink)}
-.tabs button.on{color:var(--ink)}
-.tabs button.on::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--brass)}
-.viewport{position:relative;flex:1;display:flex;align-items:center;justify-content:center;min-height:clamp(360px,54vh,760px);background:var(--bg2);margin-top:16px;padding:20px;
-  background-image:radial-gradient(#15140e 1px,transparent 1px);background-size:22px 22px}
-.viewport::before,.viewport::after{content:'';position:absolute;width:18px;height:18px;border:1px solid var(--brass-dim);z-index:3;pointer-events:none}
-.viewport::before{top:8px;left:8px;border-right:0;border-bottom:0}
-.viewport::after{bottom:8px;right:8px;border-left:0;border-top:0}
-.view{display:none;width:100%;height:100%;align-items:center;justify-content:center;position:relative}
-.view.on{display:flex}
-.view canvas{display:block;max-width:100%;max-height:56vh;width:auto;height:auto;touch-action:none}
-#cv-relief{cursor:grab}
-#cv-relief:active{cursor:grabbing}
-#cv-compare{cursor:col-resize}
-.vtag{position:absolute;font-family:var(--f-m);font-size:9px;letter-spacing:.3em;color:var(--muted);border:1px solid var(--line2);padding:4px 9px;background:rgba(11,11,9,.7)}
-.vtag.l{left:14px;top:12px}.vtag.r{right:14px;top:12px;color:var(--brass)}
+  /* keadaan kosong */
+  #empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;cursor:pointer;z-index:3}
+  #empty h3{font-size:clamp(34px,5.4vw,72px);font-weight:660;font-stretch:120%;line-height:.99;letter-spacing:.01em;text-transform:uppercase;text-align:center}
+  #empty h3 .ol{color:transparent;-webkit-text-stroke:1.5px var(--amber)}
+  #empty p{font:400 10.5px/2 var(--mono);color:var(--dim);letter-spacing:.1em;text-align:center}
+  #empty .kbd{border:1px solid var(--line2);padding:1px 6px;color:var(--ink)}
 
-#empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:2;cursor:pointer}
-#empty .sun{width:110px;height:76px;color:var(--brass-dim);animation:pulse 4.5s ease-in-out infinite}
-#empty h2{font-family:var(--f-d);font-size:15px;letter-spacing:.34em;color:var(--muted);font-weight:400}
-#empty p{font-family:var(--f-m);font-size:9px;letter-spacing:.2em;color:var(--faint);text-align:center;line-height:2}
-@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+  /* kanvas 2D */
+  #cwrap{position:absolute;inset:0;cursor:crosshair;z-index:2}
+  #cv{position:absolute;inset:0;width:100%;height:100%}
+  #wipe{position:absolute;width:0;display:none;pointer-events:none;z-index:4}
+  #wipe .bar{position:absolute;top:0;bottom:0;left:-1px;width:2px;background:var(--amber)}
+  #wipe .knob{position:absolute;top:50%;left:0;transform:translate(-50%,-50%);width:27px;height:27px;background:var(--bg);border:1px solid var(--amber);color:var(--amber);display:flex;align-items:center;justify-content:center;pointer-events:auto;cursor:ew-resize}
+  #wipe .knob svg{width:14px;height:14px}
+  .tag{position:absolute;display:none;top:0;font:600 9px var(--mono);letter-spacing:.2em;color:var(--dim);background:rgba(13,14,11,.72);border:1px solid var(--line);padding:4px 8px;z-index:3;pointer-events:none}
+  #readout{position:absolute;display:none;pointer-events:none;z-index:5;font:600 11px var(--mono);letter-spacing:.06em;background:rgba(13,14,11,.9);border:1px solid var(--line2);padding:6px 10px;white-space:nowrap}
+  #readout b{color:var(--amber)}
 
-#proc{position:absolute;inset:0;background:rgba(7,7,6,.88);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:6}
-#proc.on{display:flex}
-#proc .sun{width:48px;height:34px;color:var(--brass);animation:rot 4s linear infinite}
-@keyframes rot{to{transform:rotate(360deg)}}
-#procLabel{font-family:var(--f-m);font-size:10px;letter-spacing:.34em;color:var(--muted)}
+  /* 3D */
+  #threeWrap{position:absolute;inset:0;display:none;z-index:2;cursor:grab}
+  #threeWrap:active{cursor:grabbing}
+  #threeWrap canvas{width:100% !important;height:100% !important;display:block}
 
-#tip{position:absolute;pointer-events:none;background:#15130b;border:1px solid var(--brass-dim);padding:5px 10px;font-family:var(--f-m);font-size:9.5px;color:var(--ink);letter-spacing:.06em;white-space:nowrap;display:none;z-index:8}
+  /* progres & status */
+  #busy{position:absolute;left:0;right:0;top:0;height:2px;overflow:hidden;display:none;z-index:7}
+  #busy i,#obar.indet i{position:absolute;height:100%;width:30%;background:var(--amber);animation:sweep 1s linear infinite}
+  @keyframes sweep{from{left:-30%}to{left:100%}}
+  #dropHint{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font:600 12px var(--mono);letter-spacing:.34em;color:var(--amber);background:rgba(13,14,11,.6);z-index:8;pointer-events:none}
+  #viewport.hot #dropHint{display:flex}
+  #overlay{position:absolute;inset:0;background:rgba(13,14,11,.88);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:9}
+  #olabel{font:600 10px var(--mono);letter-spacing:.3em;color:var(--dim)}
+  #opct{font:600 26px var(--mono);color:var(--ink)}
+  #obar{width:min(340px,68%);height:2px;background:var(--line2);position:relative;overflow:hidden}
+  #obar i{display:block;height:100%;width:0;background:var(--amber);transition:width .25s}
+  #ofile{font:400 9px var(--mono);color:var(--dim);letter-spacing:.1em;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #statusbar{display:flex;justify-content:space-between;gap:14px;align-items:center;border-top:1px solid var(--line);padding:0 18px;height:34px;flex:none;font:400 9.5px var(--mono);color:var(--dim);letter-spacing:.1em;overflow:hidden;white-space:nowrap}
+  #statusbar b{color:var(--ink);font-weight:500}
 
-#viewHint{font-family:var(--f-m);font-size:9px;letter-spacing:.22em;color:var(--faint);padding:10px 2px 0;min-height:24px}
-#readout{display:flex;flex-wrap:wrap;gap:8px 24px;padding:9px 2px;font-family:var(--f-m);font-size:9.5px;color:var(--muted);letter-spacing:.1em;min-height:30px}
-#readout b{color:var(--ink);font-weight:400}
-#readout .acc{color:var(--brass)}
-#log{height:108px;overflow-y:auto;border-top:1px solid var(--line2);padding-top:8px;font-family:var(--f-m);font-size:9.5px;line-height:1.75;color:var(--muted);letter-spacing:.04em}
-#log .t{color:#54503a}
-#log .k{color:var(--brass)}
-#log .e{color:var(--err)}
+  /* toast */
+  #toasts{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:50}
+  .toast{background:#151612;border:1px solid var(--line2);border-left:2px solid var(--amber);padding:11px 15px;font:500 11px var(--mono);letter-spacing:.04em;animation:tin .2s ease;max-width:320px}
+  .toast.err{border-left-color:var(--err)}
+  @keyframes tin{from{opacity:0;transform:translateY(6px)}}
 
-#modal{position:fixed;inset:0;background:rgba(5,5,4,.82);display:none;align-items:center;justify-content:center;z-index:50;padding:28px}
-#modal.on{display:flex}
-.doc{max-width:840px;width:100%;max-height:88vh;display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--line);position:relative;
-  background-image:
-   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim)),
-   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim)),
-   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim)),
-   linear-gradient(var(--brass-dim),var(--brass-dim)),linear-gradient(var(--brass-dim),var(--brass-dim));
-  background-repeat:no-repeat;
-  background-size:16px 1px,1px 16px,16px 1px,1px 16px,16px 1px,1px 16px,16px 1px,1px 16px;
-  background-position:left top,left top,right top,right top,left bottom,left bottom,right bottom,right bottom;
-  background-color:var(--bg)}
-.doc-head{display:flex;align-items:center;gap:14px;padding:18px 26px;border-bottom:1px solid var(--line2)}
-.doc-head .sun{width:30px;height:21px;color:var(--brass)}
-.doc-head h2{font-family:var(--f-d);font-size:15px;letter-spacing:.28em;font-weight:400;flex:1}
-.doc-body{overflow-y:auto;padding:26px 34px 34px;font-size:12.5px;line-height:1.85;color:#cfc9b4}
-.doc-body h3{font-size:11px;letter-spacing:.3em;color:var(--brass);font-weight:500;margin:22px 0 8px}
-.doc-body h3:first-child{margin-top:0}
-.doc-body p{margin-bottom:8px}
-.doc-body ul{list-style:none;margin:4px 0 10px}
-.doc-body li{padding-left:20px;position:relative;margin-bottom:5px}
-.doc-body li::before{content:'';position:absolute;left:2px;top:.72em;width:7px;height:7px;transform:rotate(45deg);border:1px solid var(--brass-dim)}
-.doc-foot{display:flex;gap:10px;padding:16px 26px;border-top:1px solid var(--line2)}
-
-#toasts{position:fixed;right:22px;bottom:22px;z-index:60;display:flex;flex-direction:column;gap:8px}
-.toast{background:#15130b;border:1px solid var(--brass-dim);border-left:3px solid var(--brass);padding:11px 18px;font-size:11px;letter-spacing:.12em;color:var(--ink);max-width:340px;animation:tin .25s ease}
-.toast.out{opacity:0;transition:opacity .4s}
-@keyframes tin{from{transform:translateX(24px);opacity:0}}
-footer{border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-content:space-between;gap:20px;font-family:var(--f-m);font-size:8.5px;color:var(--faint);letter-spacing:.18em}
-
-@media(max-width:980px){
-  main{grid-template-columns:1fr}
-  aside{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--line)}
-  .viewport{min-height:300px}
-  .view canvas{max-height:48vh}
-}
+  @media (max-width:920px){
+    body{overflow:auto}
+    #app{height:auto}
+    main{display:flex;flex-direction:column-reverse}
+    aside{border-right:none;border-top:1px solid var(--line)}
+    #viewport{min-height:430px;margin:12px}
+    .brand .sub,.hint{display:none}
+  }
 </style>
 </head>
 <body>
+<div id="app">
 
-<header>
-  <div class="brand">
-    <svg class="sun" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-      <path d="M8 42 A24 24 0 0 1 56 42"/><path d="M18 42 A14 14 0 0 1 46 42"/>
-      <line x1="32" y1="22" x2="32" y2="13"/><line x1="43" y1="23" x2="46" y2="17.8"/><line x1="21" y1="23" x2="18" y2="17.8"/>
-      <line x1="49.3" y1="32" x2="54.5" y2="29"/><line x1="14.7" y1="32" x2="9.5" y2="29"/>
-      <line x1="0" y1="42" x2="64" y2="42"/>
-    </svg>
-    <div>
-      <div class="wordmark">BASRELIEF</div>
-      <div class="tagline">ATELIER DEPTH MAP · CNC &amp; VECTRIC ASPIRE</div>
+  <header>
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 22 22" fill="none">
+        <rect x="1.5" y="1.5" width="19" height="19" stroke="#F0A33A" stroke-width="1.5"/>
+        <path d="M11 1.5v19M1.5 11h19" stroke="#F0A33A" stroke-width="1" opacity=".45"/>
+        <circle cx="11" cy="11" r="4" stroke="#F0A33A" stroke-width="1.5"/>
+      </svg>
+      <h1>KEDALAMAN</h1>
+      <span class="sub">DEPTH ANYTHING V2 — DI PERAMBAN, TANPA SERVER</span>
     </div>
-  </div>
-  <div class="hspace"></div>
-  <span class="hchip" id="modelsChip"><span class="dot"></span><span id="modelsTxt">MESIN — MENUNGGU</span></span>
-  <button class="btn-ghost" id="btn-protocol"><i data-lucide="info"></i>PROTOKOL</button>
-</header>
+    <div class="chip" id="engChip"><span class="dot"></span><span id="backendLabel">MENYIAPKAN…</span></div>
+  </header>
 
-<main>
-  <aside>
+  <main>
+    <aside>
+      <section class="blk">
+        <h2><em>01</em>SUMBER</h2>
+        <div id="drop">
+          <i data-lucide="image-up"></i>
+          <div><b>Pilih gambar</b><span>atau jatuhkan di viewport · Ctrl+V</span></div>
+        </div>
+        <div class="srcmeta" id="srcMeta">BELUM ADA SUMBER</div>
+        <div id="samples"></div>
+      </section>
 
-    <section>
-      <div class="sec-head"><span class="sec-num">01</span><span class="sec-title">SUMBER</span></div>
-      <div class="mini-seg stand" id="srcSeg">
-        <button data-src="foto" class="on">FOTO / OBJEK</button>
-        <button data-src="impor">DEPTH MAP LUAR</button>
+      <section class="blk">
+        <h2><em>02</em>GAYA PETA</h2>
+        <div class="cmap on" data-cmap="karbon"><div class="sw"></div><span>ARANG</span></div>
+        <div class="cmap" data-cmap="inferno"><div class="sw"></div><span>INFERNO</span></div>
+        <div class="cmap" data-cmap="viridis"><div class="sw"></div><span>VIRIDIS</span></div>
+        <div class="cmap" data-cmap="spektral"><div class="sw"></div><span>SPEKTRAL</span></div>
+        <div class="cmap" data-cmap="mono"><div class="sw"></div><span>MONOKROM</span></div>
+      </section>
+
+      <section class="blk">
+        <h2><em>03</em>KONTROL</h2>
+        <div class="row"><span>BALIK KEDALAMAN</span><button class="switch" id="invert" title="Balik arah dekat–jauh"><i></i></button></div>
+        <div class="row"><span>RELIEF 3D</span><b id="reliefVal">55%</b></div>
+        <input type="range" id="relief" min="0" max="100" value="55">
+      </section>
+
+      <section class="blk">
+        <h2><em>04</em>EKSPOR</h2>
+        <button class="btn" id="dl" disabled><i data-lucide="download"></i><span id="dlLabel">UNDUH PETA PNG</span></button>
+      </section>
+
+      <div class="note">
+        Depth Anything V2-S berjalan lokal via ONNX (WebGPU / WASM).
+        Model diunduh sekali lalu tersimpan di cache peramban.
+        Gambar Anda tidak pernah diunggah ke server mana pun.
       </div>
-      <div class="sec-hint">DEPTH MAP LUAR: untuk memproses hasil AI (mis. Gemini) agar siap CNC — protokol diterapkan penuh.</div>
-      <div class="drop" id="drop">
-        <svg viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-          <path d="M8 42 A24 24 0 0 1 56 42"/><path d="M18 42 A14 14 0 0 1 46 42"/>
-          <line x1="32" y1="22" x2="32" y2="13"/><line x1="43" y1="23" x2="46" y2="17.8"/><line x1="21" y1="23" x2="18" y2="17.8"/>
-          <line x1="49.3" y1="32" x2="54.5" y2="29"/><line x1="14.7" y1="32" x2="9.5" y2="29"/>
-          <line x1="0" y1="42" x2="64" y2="42"/>
+    </aside>
+
+    <section id="stage">
+      <div id="stagebar">
+        <div class="tabs">
+          <button class="tab on" id="tab2d" disabled><i data-lucide="layers"></i>PETA 2D</button>
+          <button class="tab" id="tab3d" disabled><i data-lucide="box"></i>RELIEF 3D</button>
+        </div>
+        <div class="hint" id="hint">MUAT GAMBAR UNTUK MEMULAI · TOMBOL 1 / 2 UNTUK GANTI MODE</div>
+      </div>
+
+      <div id="viewport">
+        <div id="frame"></div>
+        <span class="tick tl"></span><span class="tick tr"></span>
+        <span class="tick bl"></span><span class="tick br"></span>
+        <span class="edge lbl-tl">VIEWPORT·01</span>
+        <span class="edge lbl-br">KOMPUTASI LOKAL</span>
+
+        <svg id="contours" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice">
+          <g fill="none" stroke="rgba(234,231,220,.085)" stroke-width="1">
+            <ellipse cx="565" cy="250" rx="310" ry="185" transform="rotate(-8 565 250)"  stroke-dasharray="5 9"/>
+            <ellipse cx="565" cy="250" rx="235" ry="134" transform="rotate(-14 565 250)" stroke-dasharray="5 9"/>
+            <ellipse cx="565" cy="250" rx="168" ry="92"  transform="rotate(-20 565 250)" stroke-dasharray="5 9"/>
+            <ellipse cx="565" cy="250" rx="106" ry="56"  transform="rotate(-26 565 250)" stroke-dasharray="5 9"/>
+            <ellipse cx="565" cy="250" rx="52"  ry="26"  transform="rotate(-32 565 250)" stroke="rgba(240,163,58,.38)" stroke-dasharray="5 9"/>
+          </g>
         </svg>
-        <div class="drop-title">JATUHKAN GAMBAR</div>
-        <div class="drop-sub">jpg · png · webp · bmp · gif · avif<br>klik · tarik-lepas · tempel (Ctrl+V)</div>
-        <div id="fileMeta"></div>
-      </div>
-      <input type="file" id="fileInput" accept="image/*,.jpg,.jpeg,.png,.webp,.bmp,.gif,.avif" hidden>
-    </section>
 
-    <section>
-      <div class="sec-head"><span class="sec-num">02</span><span class="sec-title">MESIN KEDALAMAN</span></div>
-      <div class="prow"><span>KEDALAMAN NEURAL</span><span class="pstate" id="chip-neural">—</span></div>
-      <div class="prow"><span>SEGMENTASI SUBJEK</span><span class="pstate" id="chip-seg">—</span></div>
-      <div class="prow"><span>LANDMARK WAJAH (KLASIK)</span><span class="pstate" id="chip-lm">—</span></div>
-      <label class="chk">
-        <input type="checkbox" id="c-neural" checked><span class="box"></span>
-        <span class="lbl">ESTIMASI NEURAL — OBJEK APA PUN</span>
-      </label>
-      <div class="sec-hint">Depth Anything V2 (±25 MB, diunduh sekali lalu tersimpan di cache). Matikan untuk mode klasik. Diabaikan pada mode DEPTH MAP LUAR.</div>
-      <div class="row-tools">
-        <select id="resSel" title="resolusi kerja">
-          <option value="512">RESOLUSI 512</option>
-          <option value="1024" selected>RESOLUSI 1024</option>
-          <option value="1536">RESOLUSI 1536</option>
-        </select>
-        <button class="btn-mini" id="btn-rerun" title="proses ulang"><i data-lucide="rotate-cw"></i>ULANG</button>
-      </div>
-    </section>
+        <div id="empty">
+          <h3>JATUHKAN<br><span class="ol">GAMBAR</span>&nbsp;DI SINI</h3>
+          <p>SERET &amp; LEPAS · TEMPEL DARI PAPAN KLIP (<span class="kbd">Ctrl</span>+<span class="kbd">V</span>) · ATAU KLIK DI SINI<br>
+          SEMUANYA DIPROSES LOKAL — GAMBAR TIDAK MENINGGALKAN PERANGKAT</p>
+        </div>
 
-    <section>
-      <div class="sec-head">
-        <span class="sec-num">03</span><span class="sec-title">PEMAHATAN</span>
-        <div class="mini-seg" id="autoSeg">
-          <button data-auto="1" class="on">AUTO</button>
-          <button data-auto="0">MANUAL</button>
+        <div id="cwrap">
+          <canvas id="cv"></canvas>
+          <div id="wipe"><div class="bar"></div><div class="knob" id="knob"><i data-lucide="chevrons-left-right"></i></div></div>
+          <span class="tag" id="tagL">ASLI</span>
+          <span class="tag" id="tagR">PETA KEDALAMAN</span>
+          <div id="readout"></div>
+        </div>
+
+        <div id="threeWrap"></div>
+        <div id="busy"><i></i></div>
+        <div id="dropHint">LEPASKAN GAMBAR</div>
+
+        <div id="overlay">
+          <div id="olabel">MENYIAPKAN ENGINE</div>
+          <div id="opct">—</div>
+          <div id="obar"><i></i></div>
+          <div id="ofile"></div>
         </div>
       </div>
-      <div class="sec-hint">AUTO menyetel seluruh parameter dari statistik foto. Geser slider mana pun untuk beralih ke manual.</div>
-      <div class="ctl">
-        <div class="ctl-top"><label for="c-carve">PAHAT STRUKTUR</label><output></output></div>
-        <input type="range" id="c-carve" min="0" max="1.5" step="0.05" value="0.55">
-        <div class="hint">pemisahan volumetrik antar struktur — inti tampilan "sangat dalam"</div>
-      </div>
-      <div class="ctl">
-        <div class="ctl-top"><label for="c-zAmp">AMPLIFIKASI Z</label><output></output></div>
-        <input type="range" id="c-zAmp" min="0.5" max="2.5" step="0.05" value="1.5">
-        <div class="hint">skala kedalaman agresif — permukaan tetap membulat</div>
-      </div>
-      <div class="ctl">
-        <div class="ctl-top"><label for="c-tension">KONTRAS PAHATAN</label><output></output></div>
-        <input type="range" id="c-tension" min="0" max="1" step="0.01" value="0.75">
-        <div class="hint">kurva-S — puncak ke putih, cekungan ke hitam</div>
-      </div>
-      <div class="ctl">
-        <div class="ctl-top"><label for="c-rampW">RAMP KEMUNCULAN</label><output></output></div>
-        <input type="range" id="c-rampW" min="20" max="80" step="1" value="44">
-        <div class="hint">lebar transisi ke hitam — 30–50 px ideal (protokol)</div>
-      </div>
-      <div class="ctl">
-        <div class="ctl-top"><label for="c-fillet">FILET PERMUKAAN</label><output></output></div>
-        <input type="range" id="c-fillet" min="0" max="14" step="1" value="3">
-      </div>
-      <div class="ctl" id="ctl-hairL">
-        <div class="ctl-top"><label for="c-hairL">ELEVASI MASSA (RAMBUT/BADAN)</label><output></output></div>
-        <input type="range" id="c-hairL" min="0.10" max="0.60" step="0.01" value="0.34">
-        <div class="hint">hanya mode klasik (non-neural)</div>
-      </div>
-      <div class="ctl">
-        <div class="ctl-top"><label for="c-detW">DETAIL MIKRO</label><output></output></div>
-        <input type="range" id="c-detW" min="0" max="1" step="0.01" value="0.30">
-        <div class="hint">pertegas relief halus dari struktur kedalaman</div>
+
+      <div id="statusbar">
+        <span id="meta">—</span>
+        <span>DEPTH ANYTHING V2-S · ONNX · <b id="sbBackend">—</b></span>
       </div>
     </section>
-
-    <section>
-      <div class="sec-head"><span class="sec-num">04</span><span class="sec-title">MATERI RELIEF</span></div>
-      <div class="seg">
-        <button data-mat="brass" class="on">KUNINGAN</button>
-        <button data-mat="stone">BATU</button>
-      </div>
-      <div class="mat-hint">tampilan pratinjau saja — seret pada kanvas relief untuk memutar arah cahaya dan memeriksa kelengkungan lereng.</div>
-    </section>
-
-    <section>
-      <div class="sec-head"><span class="sec-num">05</span><span class="sec-title">EKSPOR</span></div>
-      <div class="numrow">
-        <label for="c-mm">KEDALAMAN PEMAHATAN</label>
-        <input type="number" id="c-mm" min="1" max="100" step="0.5" value="10"><span class="unit">mm</span>
-      </div>
-      <label class="chk">
-        <input type="checkbox" id="c-invert"><span class="box"></span><span class="lbl">INVERSI KEDALAMAN</span>
-      </label>
-      <button class="btn primary" id="btn-exp16" disabled><i data-lucide="download"></i>PNG 16-BIT · ASPIRE</button>
-      <button class="btn" id="btn-exp8" disabled><i data-lucide="download"></i>PNG 8-BIT</button>
-      <button class="btn" id="btn-expRelief" disabled><i data-lucide="layers"></i>RENDER RELIEF</button>
-    </section>
-
-  </aside>
-
-  <div class="stage">
-    <nav class="tabs">
-      <button data-view="depth" class="on">DEPTH MAP</button>
-      <button data-view="relief">RELIEF</button>
-      <button data-view="compare">COMPARE</button>
-    </nav>
-
-    <div class="viewport" id="viewport">
-      <div id="empty">
-        <svg class="sun" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M8 42 A24 24 0 0 1 56 42"/><path d="M18 42 A14 14 0 0 1 46 42"/>
-          <line x1="32" y1="22" x2="32" y2="13"/><line x1="43" y1="23" x2="46" y2="17.8"/><line x1="21" y1="23" x2="18" y2="17.8"/>
-          <line x1="49.3" y1="32" x2="54.5" y2="29"/><line x1="14.7" y1="32" x2="9.5" y2="29"/>
-          <line x1="0" y1="42" x2="64" y2="42"/>
-        </svg>
-        <h2>MENUNGGU SUBJEK</h2>
-        <p>FOTO / OBJEK / DEPTH MAP LUAR<br>SEMUA KOMPUTASI DI PERAMBAN</p>
-      </div>
-
-      <div class="view on" data-view="depth"><canvas id="cv-depth"></canvas></div>
-      <div class="view" data-view="relief"><canvas id="cv-relief"></canvas></div>
-      <div class="view" data-view="compare">
-        <canvas id="cv-compare"></canvas>
-        <span class="vtag l">SUMBER</span><span class="vtag r">DEPTH</span>
-      </div>
-
-      <div id="proc">
-        <svg class="sun" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-          <path d="M8 42 A24 24 0 0 1 56 42"/><path d="M18 42 A14 14 0 0 1 46 42"/>
-          <line x1="32" y1="22" x2="32" y2="13"/><line x1="43" y1="23" x2="46" y2="17.8"/><line x1="21" y1="23" x2="18" y2="17.8"/>
-          <line x1="49.3" y1="32" x2="54.5" y2="29"/><line x1="14.7" y1="32" x2="9.5" y2="29"/>
-          <line x1="0" y1="42" x2="64" y2="42"/>
-        </svg>
-        <div id="procLabel">MEMPROSES…</div>
-      </div>
-
-      <div id="tip"></div>
-    </div>
-
-    <div id="viewHint"></div>
-    <div id="readout"><span>menunggu sumber…</span></div>
-    <div id="log"></div>
-  </div>
-</main>
-
-<div id="modal">
-  <div class="doc">
-    <div class="doc-head">
-      <svg class="sun" viewBox="0 0 64 44" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-        <path d="M8 42 A24 24 0 0 1 56 42"/><path d="M18 42 A14 14 0 0 1 46 42"/>
-        <line x1="32" y1="22" x2="32" y2="13"/><line x1="43" y1="23" x2="46" y2="17.8"/><line x1="21" y1="23" x2="18" y2="17.8"/>
-        <line x1="49.3" y1="32" x2="54.5" y2="29"/><line x1="14.7" y1="32" x2="9.5" y2="29"/>
-        <line x1="0" y1="42" x2="64" y2="42"/>
-      </svg>
-      <h2>THE CARVING PROTOCOL</h2>
-      <button class="btn-ghost" id="btn-close-modal"><i data-lucide="x"></i>TUTUP</button>
-    </div>
-    <div class="doc-body" id="docBody"></div>
-    <div class="doc-foot">
-      <button class="btn primary" id="btn-copy" style="width:auto;padding:11px 26px"><i data-lucide="copy"></i>SALIN PROTOKOL</button>
-    </div>
-  </div>
+  </main>
 </div>
 
 <div id="toasts"></div>
+<input type="file" id="fileInput" accept="image/*" hidden>
 
-<footer>
-  <span>BASRELIEF v2.1 — DEPTH ANYTHING V2 + PAHAT STRUKTUR · SEPENUHNYA LOKAL</span>
-  <span>PNG GRAYSCALE 16-BIT · VECTRIC ASPIRE / ARTCAM</span>
-</footer>
-
-<script>
-'use strict';
-/* ================================================================
-   BASRELIEF v2.1
-   - Mesin neural Depth Anything V2 (objek apa pun, lokal)
-   - PAHAT STRUKTUR: band-pass skala fitur → kontras pahatan dalam
-   - Normalisasi persentil penuh → rentang 0..1 terpakai seluruhnya
-   - Mode IMPOR: depth map luar (mis. buatan Gemini) diproses
-     dengan protokol penuh → siap Aspire
-   - Fallback klasik (MediaPipe) tetap tersedia
-   ================================================================ */
-
-const $  = (s,el=document)=>el.querySelector(s);
-const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
-const clamp=(v,a,b)=>v<a?a:v>b?b:v;
-const lerp=(a,b,t)=>a+(b-a)*t;
-const ss=t=>{t=clamp(t,0,1);return t*t*t*(t*(t*6-15)+10);};
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const mkCanvas=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;};
-
-let SCR=null;
-const getScr=n=>{if(!SCR||SCR.length<n)SCR=new Float32Array(n);return SCR;};
-
-function boxH(src,dst,w,h,r){
-  const inv=1/(2*r+1);
-  for(let y=0;y<h;y++){
-    const o=y*w; let acc=0;
-    for(let k=-r;k<=r;k++)acc+=src[o+clamp(k,0,w-1)];
-    for(let x=0;x<w;x++){
-      dst[o+x]=acc*inv;
-      acc+=src[o+clamp(x+r+1,0,w-1)]-src[o+clamp(x-r,0,w-1)];
-    }
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
   }
 }
-function boxV(src,dst,w,h,r){
-  const inv=1/(2*r+1);
-  for(let x=0;x<w;x++){
-    let acc=0;
-    for(let k=-r;k<=r;k++)acc+=src[clamp(k,0,h-1)*w+x];
-    for(let y=0;y<h;y++){
-      dst[y*w+x]=acc*inv;
-      acc+=src[clamp(y+r+1,0,h-1)*w+x]-src[clamp(y-r,0,h-1)*w+x];
-    }
+</script>
+<script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js"></script>
+
+<script type="module">
+import { pipeline, env, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.1';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+env.allowLocalModels = false;
+
+const MODEL_ID = 'onnx-community/depth-anything-v2-small';
+const $ = s => document.querySelector(s);
+
+const els = {
+  cv: $('#cv'), cwrap: $('#cwrap'), wipe: $('#wipe'), knob: $('#knob'),
+  tagL: $('#tagL'), tagR: $('#tagR'), readout: $('#readout'),
+  empty: $('#empty'), overlay: $('#overlay'), olabel: $('#olabel'),
+  opct: $('#opct'), obar: $('#obar'), obarFill: $('#obar i'), ofile: $('#ofile'),
+  busy: $('#busy'), viewport: $('#viewport'), dropHint: $('#dropHint'),
+  meta: $('#meta'), hint: $('#hint'), sbBackend: $('#sbBackend'),
+  backend: $('#backendLabel'), chip: $('#engChip'),
+  relief: $('#relief'), reliefVal: $('#reliefVal'),
+  invert: $('#invert'), dl: $('#dl'), dlLabel: $('#dlLabel'),
+  srcMeta: $('#srcMeta'), fileInput: $('#fileInput'),
+  threeWrap: $('#threeWrap'), drop: $('#drop'),
+  tab2d: $('#tab2d'), tab3d: $('#tab3d'),
+};
+
+const S = {
+  mode: '2d',
+  blob: null, srcName: '',
+  image: null, imageW: 0, imageH: 0,
+  rawDepth: null, depthFloat: null, depthW: 0, depthH: 0,
+  invert: false, cmap: 'karbon', relief: .55, split: .5,
+  ready: false, pending: false, busy: false,
+  hasResult: false, dirty3d: true,
+  inferMs: 0, backendLabel: '—', dtype: '',
+};
+
+/* ── colormap: LUT 256 entri dari beberapa stop warna ── */
+const CMAPS = {
+  karbon:  [[0,'#070706'],[.35,'#331B0C'],[.62,'#8A4A16'],[.82,'#E08A2E'],[1,'#FFE9C4']],
+  inferno: [[0,'#000004'],[.18,'#420A68'],[.36,'#932667'],[.54,'#DD513A'],[.72,'#F3771A'],[.88,'#F9C832'],[1,'#FCFFA4']],
+  viridis: [[0,'#440154'],[.25,'#3B528B'],[.5,'#21918C'],[.75,'#5EC962'],[1,'#FDE725']],
+  spektral:[[0,'#0B2A5B'],[.3,'#0E8F92'],[.55,'#4CB46E'],[.78,'#E3C64B'],[1,'#D64533']],
+  mono:    [[0,'#000000'],[1,'#FFFFFF']],
+};
+const hex2rgb = h => [1,3,5].map(i => parseInt(h.slice(i,i+2),16));
+const LUT = {};
+for (const [name, stops] of Object.entries(CMAPS)) {
+  const lut = new Uint8Array(256*3);
+  for (let i=0;i<256;i++){
+    const t=i/255;
+    let a=stops[0], b=stops[stops.length-1];
+    for (let s=0;s<stops.length-1;s++) if (t>=stops[s][0] && t<=stops[s+1][0]){ a=stops[s]; b=stops[s+1]; break; }
+    const f=(b[0]-a[0])||1e-6, k=Math.min(1,Math.max(0,(t-a[0])/f));
+    const ca=hex2rgb(a[1]), cb=hex2rgb(b[1]);
+    for (let c=0;c<3;c++) lut[i*3+c]=Math.round(ca[c]+(cb[c]-ca[c])*k);
   }
-}
-function blur(f,w,h,r,passes=3){
-  r=Math.round(r); if(r<1)return f;
-  const scr=getScr(w*h);
-  for(let p=0;p<passes;p++){boxH(f,scr,w,h,r);boxV(scr,f,w,h,r);}
-  return f;
+  LUT[name]=lut;
 }
 
-function distField(bin,w,h){
-  const n=w*h,d=new Float32Array(n);
-  for(let i=0;i<n;i++)d[i]=bin[i]?1e9:0;
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-    const i=y*w+x; let v=d[i]; if(v===0)continue;
-    if(x>0&&d[i-1]+3<v)v=d[i-1]+3;
-    if(y>0){const u=i-w;
-      if(d[u]+3<v)v=d[u]+3;
-      if(x>0&&d[u-1]+4<v)v=d[u-1]+4;
-      if(x<w-1&&d[u+1]+4<v)v=d[u+1]+4;}
-    d[i]=v;
-  }
-  for(let y=h-1;y>=0;y--)for(let x=w-1;x>=0;x--){
-    const i=y*w+x; let v=d[i]; if(v===0)continue;
-    if(x<w-1&&d[i+1]+3<v)v=d[i+1]+3;
-    if(y<h-1){const dn=i+w;
-      if(d[dn]+3<v)v=d[dn]+3;
-      if(x<w-1&&d[dn+1]+4<v)v=d[dn+1]+4;
-      if(x>0&&d[dn-1]+4<v)v=d[dn-1]+4;}
-    d[i]=v;
-  }
-  for(let i=0;i<n;i++)d[i]/=3;
-  return d;
-}
-
-function fillHoles(bin,w,h){
-  const n=w*h,seen=new Uint8Array(n),q=new Int32Array(n);let qh=0,qt=0;
-  const push=i=>{if(!bin[i]&&!seen[i]){seen[i]=1;q[qt++]=i;}};
-  for(let x=0;x<w;x++){push(x);push((h-1)*w+x);}
-  for(let y=0;y<h;y++){push(y*w);push(y*w+w-1);}
-  while(qh<qt){
-    const i=q[qh++],x=i%w,y=(i/w)|0;
-    if(x>0)push(i-1); if(x<w-1)push(i+1); if(y>0)push(i-w); if(y<h-1)push(i+w);
-  }
-  for(let i=0;i<n;i++)if(!bin[i]&&!seen[i])bin[i]=1;
-}
-
-function fillPoly(poly,w,h){
-  const m=new Uint8Array(w*h),xs=[];
-  let y0=1e9,y1=-1e9;
-  for(const p of poly){y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1]);}
-  y0=Math.max(0,Math.floor(y0));y1=Math.min(h-1,Math.ceil(y1));
-  for(let y=y0;y<=y1;y++){
-    xs.length=0;
-    for(let e=0;e<poly.length;e++){
-      const a=poly[e],b=poly[(e+1)%poly.length];
-      if((a[1]<=y&&b[1]>y)||(b[1]<=y&&a[1]>y))
-        xs.push(a[0]+(y-a[1])/(b[1]-a[1])*(b[0]-a[0]));
-    }
-    xs.sort((p,q)=>p-q);
-    for(let k=0;k+1<xs.length;k+=2){
-      const xa=Math.max(0,Math.ceil(xs[k])),xb=Math.min(w-1,Math.floor(xs[k+1]));
-      for(let x=xa;x<=xb;x++)m[y*w+x]=1;
-    }
-  }
-  return m;
-}
-
-function splat(f,w,h,cx,cy,amp,sig){
-  const r=Math.max(2,Math.ceil(sig*3)),s2=2*sig*sig;
-  const x0=Math.max(0,Math.floor(cx-r)),x1=Math.min(w-1,Math.ceil(cx+r));
-  const y0=Math.max(0,Math.floor(cy-r)),y1=Math.min(h-1,Math.ceil(cy+r));
-  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
-    const dx=x-cx,dy=y-cy;
-    f[y*w+x]+=amp*Math.exp(-(dx*dx+dy*dy)/s2);
-  }
-}
-
-/* ---------- encoder PNG grayscale 16-bit ---------- */
-const CRC_T=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c;}return t;})();
-function crc32(u8){let c=~0;for(let i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&255]^(c>>>8);return(~c)>>>0;}
-function pngChunk(type,data){
-  const b=new Uint8Array(12+data.length),dv=new DataView(b.buffer);
-  dv.setUint32(0,data.length);
-  for(let i=0;i<4;i++)b[4+i]=type.charCodeAt(i);
-  b.set(data,8);
-  dv.setUint32(8+data.length,crc32(b.subarray(4,8+data.length)));
-  return b;
-}
-function encodeGrayPNG16(w,h,gray16){
-  const sig=Uint8Array.of(137,80,78,71,13,10,26,10);
-  const ihdr=new Uint8Array(13),dv=new DataView(ihdr.buffer);
-  dv.setUint32(0,w);dv.setUint32(4,h);
-  ihdr[8]=16;ihdr[9]=0;ihdr[10]=0;ihdr[11]=0;ihdr[12]=0;
-  const stride=w*2,raw=new Uint8Array((stride+1)*h);
-  for(let y=0;y<h;y++){
-    const o=y*(stride+1);raw[o]=0;
-    for(let x=0;x<w;x++){
-      const v=gray16[y*w+x];
-      raw[o+1+x*2]=(v>>>8)&255;raw[o+2+x*2]=v&255;
-    }
-  }
-  const comp=pako.deflate(raw,{level:6});
-  return new Blob([sig,pngChunk('IHDR',ihdr),pngChunk('IDAT',comp),pngChunk('IEND',new Uint8Array(0))],{type:'image/png'});
-}
-
-/* ---------- log, toast, status ---------- */
-const T0=performance.now();
-function log(html){
-  const el=$('#log'),div=document.createElement('div');
-  const t=((performance.now()-T0)/1000).toFixed(2).padStart(6,' ');
-  div.innerHTML=`<span class="t">[${t}s]</span> ${html}`;
-  el.appendChild(div);el.scrollTop=1e6;
-}
-function toast(msg){
-  const t=document.createElement('div');t.className='toast';t.textContent=msg;
+function toast(msg, isErr=false){
+  const t=document.createElement('div');
+  t.className='toast'+(isErr?' err':'');
+  t.textContent=msg;
   $('#toasts').appendChild(t);
-  setTimeout(()=>t.classList.add('out'),3600);setTimeout(()=>t.remove(),4200);
-}
-function setChip(id,txt,cls){const e=$('#chip-'+id);e.textContent=txt;e.className='pstate '+(cls||'');}
-function setNeuralChip(txt,cls){setChip('neural',txt,cls);}
-function setModels(txt,cls){$('#modelsTxt').textContent=txt;$('#modelsChip').className='hchip '+(cls||'');}
-function setProc(s){$('#procLabel').textContent=s;}
-function procTimer(label){
-  const t0=performance.now();
-  const id=setInterval(()=>{
-    setProc(`${label} ${((performance.now()-t0)/1000).toFixed(0)}s`);
-  },500);
-  return ()=>clearInterval(id);
+  setTimeout(()=>{ t.style.transition='opacity .3s'; t.style.opacity='0'; setTimeout(()=>t.remove(),320); }, 3800);
 }
 
-/* ================================================================
-   MESIN NEURAL — Depth Anything V2 via Transformers.js (lokal)
-   ================================================================ */
-const HF_TRIES=[
-  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.1',
-  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.1/dist/transformers.min.js',
-  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3',
-  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.min.js'
-];
-let hfLib=null,depthPipe=null,neuralCfg=null,hfState='idle',hfPromise=null;
-
-async function ensureNeural(){
-  if(hfState==='ready')return true;
-  if(hfState==='loading')return await hfPromise;
-  if(hfState==='failed')return false;
-  hfState='loading';setNeuralChip('MEMUAT','warn');setModels('MESIN — MEMUAT','warn');
-  log('NEURAL — memuat <span class="k">Depth Anything V2</span> (transformers.js · eksekusi lokal)');
-  hfPromise=(async()=>{
-    try{
-      setProc('MEMUAT PUSTAKA NEURAL…');
-      let lib=null;
-      for(const u of HF_TRIES){try{lib=await import(u);break;}catch(e){}}
-      if(!lib)throw new Error('lib');
-      hfLib=lib;
-      const chain=(navigator.gpu&&navigator.gpu.requestAdapter)
-        ?[{device:'webgpu',dtype:'fp16'},{dtype:'q8'},{dtype:'fp16'},{}]
-        :[{dtype:'q8'},{dtype:'fp16'},{}];
-      let ok=false;
-      for(const cfg of chain){
-        try{
-          depthPipe=await hfLib.pipeline('depth-estimation','onnx-community/depth-anything-v2-small',
-            Object.assign({},cfg,{progress_callback:d=>{
-              if(d&&d.status==='progress'&&d.total){
-                const pct=Math.round(d.loaded/d.total*100);
-                setProc(`MEMUAT MODEL NEURAL ${pct}%`);
-                setNeuralChip(`MEMUAT ${pct}%`,'warn');
-              }
-            }}));
-          neuralCfg=cfg;ok=true;break;
-        }catch(e){}
-      }
-      if(!ok)throw new Error('model');
-      hfState='ready';setNeuralChip('AKTIF · DA-V2','ok');setModels('MESIN — NEURAL','ok');
-      log(`NEURAL — <span class="k">siap</span> · backend ${neuralCfg.device==='webgpu'?'webgpu':'wasm'}`);
-      return true;
-    }catch(e){
-      hfState='failed';setNeuralChip('GAGAL → KLASIK','fail');setModels('MESIN — KLASIK','warn');
-      log('NEURAL — <span class="e">gagal dimuat</span>, beralih ke mode klasik');
-      toast('Model neural gagal dimuat — mode klasik aktif');
-      return false;
-    }
-  })();
-  return await hfPromise;
+/* ── pemrosesan kedalaman ── */
+function computeFloat(){
+  const src=S.rawDepth, n=src.length;
+  let mn=255, mx=0;
+  for (let i=0;i<n;i++){ const v=src[i]; if(v<mn)mn=v; if(v>mx)mx=v; }
+  const r=(mx-mn)||1;
+  const out=new Float32Array(n);
+  if (S.invert) for (let i=0;i<n;i++) out[i]=1-(src[i]-mn)/r;
+  else          for (let i=0;i<n;i++) out[i]=(src[i]-mn)/r;
+  S.depthFloat=out;
 }
 
-async function runNeuralDepth(an){
-  const {w,h}=an;
-  const t0=performance.now();
-  const stopT=procTimer('ESTIMASI KEDALAMAN…');
-  const infer=async()=>{
-    const blob=await new Promise(r=>an.orig.toBlob(r,'image/png'));
-    const url=URL.createObjectURL(blob);
-    try{return await depthPipe(url);}finally{URL.revokeObjectURL(url);}
-  };
-  let out=null;
-  try{out=await infer();}
-  catch(e){
-    if(neuralCfg&&neuralCfg.device==='webgpu'){
-      log('NEURAL — webgpu gagal saat inferensi, mencoba ulang via wasm…');
-      try{
-        depthPipe=await hfLib.pipeline('depth-estimation','onnx-community/depth-anything-v2-small',{dtype:'q8'});
-        neuralCfg={dtype:'q8'};
-        out=await infer();
-      }catch(e2){out=null;}
-    }
+const depthCanvas = document.createElement('canvas');
+function buildDepthCanvas(){
+  depthCanvas.width=S.depthW; depthCanvas.height=S.depthH;
+  const ctx=depthCanvas.getContext('2d');
+  const img=ctx.createImageData(S.depthW,S.depthH);
+  const lut=LUT[S.cmap], d=S.depthFloat, px=img.data;
+  for (let i=0;i<d.length;i++){
+    const j=(d[i]*255)|0, o=i*4, c=j*3;
+    px[o]=lut[c]; px[o+1]=lut[c+1]; px[o+2]=lut[c+2]; px[o+3]=255;
   }
-  stopT();
-  if(!out){log('NEURAL — <span class="e">inferensi gagal</span>');return false;}
-  if(Array.isArray(out))out=out[0];
-  const img=out.depth;
-  if(!img||!img.data||!img.width)return false;
-  const d=img.data,iw=img.width,ih=img.height,n=w*h;
-  const stride=d.length/(iw*ih)||1;
-  const f=new Float32Array(n);
-  const sx=iw/w,sy=ih/h;
-  for(let y=0;y<h;y++){
-    const yy=Math.min(ih-1,Math.round(y*sy));
-    for(let x=0;x<w;x++){
-      const xx=Math.min(iw-1,Math.round(x*sx));
-      f[y*w+x]=d[(yy*iw+xx)*stride]/255;
-    }
-  }
-  const med=a=>{const b=Float32Array.from(a);b.sort();return b[b.length>>1]||0;};
-  const border=[],center=[];
-  const em=Math.min(w,h)*0.06;
-  for(let i=0;i<n;i+=13){
-    const x=i%w,y=(i/w)|0;
-    (Math.min(x,y,w-1-x,h-1-y)<em?border:center).push(f[i]);
-  }
-  if(border.length>10&&center.length>10&&med(border)>med(center)*1.2+0.05){
-    for(let i=0;i<n;i++)f[i]=1-f[i];
-    log('NEURAL — orientasi kedalaman <span class="k">dikoreksi</span> (jauh↔dekat)');
-  }
-  an.neural=f;an.mode='neural';
-  log(`NEURAL — estimasi selesai dalam <span class="k">${((performance.now()-t0)/1000).toFixed(1)} s</span>`);
-  return true;
+  ctx.putImageData(img,0,0);
 }
 
-/* ================================================================
-   MediaPipe (mode klasik — wajah manusia)
-   ================================================================ */
-const MP_MESH='https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619';
-const MP_SEG ='https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747';
-let segPipe=null,meshPipe=null,mpState='idle',mpPromise=null;
-
-function loadScript(src,timeout=25000){
-  return new Promise((res,rej)=>{
-    const s=document.createElement('script');s.src=src;s.async=true;
-    const to=setTimeout(()=>{s.remove();rej(new Error('timeout'));},timeout);
-    s.onload=()=>{clearTimeout(to);res();};
-    s.onerror=()=>{clearTimeout(to);rej(new Error('network'));};
-    document.head.appendChild(s);
-  });
-}
-async function ensureModels(){
-  if(mpState==='ready')return true;
-  if(mpState==='loading')return await mpPromise;
-  mpState='loading';setModels('MESIN — MEMUAT','warn');
-  log('KLASIK — memuat <span class="k">mediapipe wasm</span>…');
-  mpPromise=(async()=>{
-    try{
-      await loadScript(MP_SEG+'/selfie_segmentation.js');
-      await loadScript(MP_MESH+'/face_mesh.js');
-      segPipe=new SelfieSegmentation({locateFile:f=>`${MP_SEG}/${f}`});
-      segPipe.setOptions({model:'general'});
-      try{await segPipe.initialize();}catch(e){}
-      meshPipe=new FaceMesh({locateFile:f=>`${MP_MESH}/${f}`});
-      meshPipe.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:0.35,minTrackingConfidence:0.35});
-      try{await meshPipe.initialize();}catch(e){}
-      mpState='ready';setModels('MESIN — KLASIK','ok');
-      log('KLASIK — <span class="k">mediapipe siap</span>');
-      return true;
-    }catch(e){
-      mpState='failed';setModels('MESIN — OFFLINE','warn');
-      log('KLASIK — <span class="e">gagal dimuat</span>, mode bayangan');
-      return false;
-    }
-  })();
-  return await mpPromise;
-}
-function mpSend(pipe,canvas){
-  return new Promise(resolve=>{
-    let got=null;
-    pipe.onResults(r=>{got=r;});
-    const finish=()=>resolve(got);
-    pipe.send({image:canvas}).then(()=>{
-      const t0=performance.now();
-      (function poll(){
-        if(got||performance.now()-t0>4000)return finish();
-        setTimeout(poll,30);
-      })();
-    }).catch(finish);
-    setTimeout(finish,15000);
-  });
+function sampleDepth(u,v){
+  const df=S.depthFloat, w=S.depthW, h=S.depthH;
+  const x=Math.min(w-1,Math.max(0,u*(w-1))), y=Math.min(h-1,Math.max(0,v*(h-1)));
+  const x0=x|0, y0=y|0, x1=Math.min(w-1,x0+1), y1=Math.min(h-1,y0+1);
+  const fx=x-x0, fy=y-y0;
+  const a=df[y0*w+x0], b=df[y0*w+x1], c=df[y1*w+x0], d=df[y1*w+x1];
+  return a*(1-fx)*(1-fy)+b*fx*(1-fy)+c*(1-fx)*fy+d*fx*fy;
 }
 
-const OVAL_IDX=[10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109];
-const GROUPS=[
- {idx:[1,4,19,94],                                   w:1.00, s:0.075},
- {idx:[168,6,197,195,5],                             w:0.86, s:0.070},
- {idx:[98,327,102,331,64,294,219,439],               w:0.66, s:0.052},
- {idx:[9,168,107,336,55,285,105,334,46,276,70,300,63,293,66,296,53,283,52,282], w:0.80, s:0.070},
- {idx:[10,151,109,338,67,297,103,332],               w:0.74, s:0.280},
- {idx:[50,280,205,425,234,454,93,323,116,345],       w:0.60, s:0.120},
- {idx:[159,145,386,374,33,133,362,263],              w:0.46, s:0.050},
- {idx:[61,291,0,17,13,14,82,312,37,267,84,314],      w:0.58, s:0.058},
- {idx:[164],                                         w:0.62, s:0.035},
- {idx:[152,175,199,18,148,377],                      w:0.52, s:0.085},
- {idx:[172,136,150,149,176,400,378,379,365,397,288,361,323,356,389,251,284,332,297,338,58,132], w:0.34, s:0.080},
-];
-const IRIS=[468,473];
+/* ── tampilan 2D + knob pembanding ── */
+const fit = {x:0,y:0,w:0,h:0};
+let revealRaf = 0;
 
-/* ---------- state global ---------- */
-let srcImg=null,srcName='',A=null,D=null,P=null;
-let view='depth',analyzing=false,running=false;
-let az=-60,elev=32,mat='brass',reliefDirty=true,sweepId=0;
-let autoMode=true;
-let cmpX=0.5,cmpDrag=false,relDrag=false,lastPX=0,lastPY=0,reliefRAF=0,synthTimer=0;
+function draw2D(){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const w=els.cwrap.clientWidth, h=els.cwrap.clientHeight;
+  if(!w||!h) return;
+  els.cv.width=Math.round(w*dpr); els.cv.height=Math.round(h*dpr);
+  const ctx=els.cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  if(!S.image){ layoutOverlays(false); return; }
 
-const depthCanvas=$('#cv-depth'),dctx=depthCanvas.getContext('2d');
-const reliefCanvas=$('#cv-relief'),rctx=reliefCanvas.getContext('2d');
-const cmpCanvas=$('#cv-compare'),cctx=cmpCanvas.getContext('2d');
-const MATS={
-  brass:{a:[0.80,0.58,0.26],sc:[1.00,0.93,0.70],sp:0.90},
-  stone:{a:[0.84,0.82,0.78],sc:[0.95,0.95,0.92],sp:0.10},
-};
-const sourceMode=()=>{const b=$('#srcSeg button.on');return b?b.dataset.src:'foto';};
+  const pad=34, sc=Math.min((w-pad*2)/S.imageW,(h-pad*2)/S.imageH);
+  fit.w=S.imageW*sc; fit.h=S.imageH*sc;
+  fit.x=(w-fit.w)/2; fit.y=(h-fit.h)/2;
 
-/* ================================================================
-   TAHAP A — ANALISIS
-   ================================================================ */
-async function runAnalysis(){
-  if(!srcImg||running)return;
-  running=true;analyzing=true;
-  $('#btn-rerun').disabled=true;
-  $('#proc').classList.add('on');
-  const t0=performance.now();
-  setChip('seg','…');setChip('lm','…');
-
-  const long=parseInt($('#resSel').value,10);
-  const iw=srcImg.naturalWidth,ih=srcImg.naturalHeight;
-  const sc=Math.min(1,long/Math.max(iw,ih));
-  const w=Math.max(16,Math.round(iw*sc)),h=Math.max(16,Math.round(ih*sc));
-  const orig=mkCanvas(w,h);
-  const octx=orig.getContext('2d',{willReadFrequently:true});
-  octx.drawImage(srcImg,0,0,w,h);
-  const px=octx.getImageData(0,0,w,h).data,n=w*h;
-  const lum=new Float32Array(n);
-  for(let i=0;i<n;i++)lum[i]=(0.2126*px[i*4]+0.7152*px[i*4+1]+0.0722*px[i*4+2])/255;
-
-  log(`SUMBER — <span class="k">${esc(srcName)}</span> ${iw}×${ih} → kerja ${w}×${h}`);
-
-  const an={w,h,n,orig,lum,mode:'klasik',face:false,lms:null};
-  const src=sourceMode();
-
-  if(src==='impor'){
-    /* ---- mode IMPOR: depth map luar (mis. Gemini) → protokol penuh ---- */
-    setProc('MENERIMA DEPTH MAP LUAR…');
-    runImportAnalysis(an);
-  }else{
-    /* ---- 1) estimasi kedalaman neural ---- */
-    let neuralOK=false;
-    if($('#c-neural').checked){
-      if(hfState==='failed'){hfState='idle';hfPromise=null;}
-      const libOK=await ensureNeural();
-      if(libOK)neuralOK=await runNeuralDepth(an);
-      if(!neuralOK)setNeuralChip('GAGAL → KLASIK','fail');
-    }else setNeuralChip('NONAKTIF','');
-
-    if(neuralOK){
-      setProc('SEGMENTASI SUBJEK…');
-      const segOK=depthSeg(an);
-      if(!segOK){
-        fallbackSeg(an);
-        if(an.area<0.002){an.bin.fill(1);an.area=1;}
-        log('SEGMENTASI — berbasis <span class="e">luminance</span> (kedalaman kurang kontras)');
-      }else{
-        log(`SEGMENTASI — subjek <span class="k">${(an.area*100).toFixed(1)}%</span> bingkai (berbasis kedalaman)`);
-      }
-      setChip('seg',an.area>0.985?'MEMENUHI BINGKAI':`SUBJEK ${Math.round(an.area*100)}%`,'ok');
-      setChip('lm','MODE NEURAL','ok');
-    }else{
-      /* ---- 2) jalur klasik ---- */
-      setProc('MEMUAT MODEL KLASIK…');
-      const ok=await ensureModels();
-      setProc('SEGMENTASI SUBJEK…');
-      let segOK=false;
-      if(ok){
-        const r=await mpSend(segPipe,orig);
-        if(r&&r.segmentationMask){
-          const mc=mkCanvas(w,h),mx=mc.getContext('2d',{willReadFrequently:true});
-          mx.drawImage(r.segmentationMask,0,0,w,h);
-          const md=mx.getImageData(0,0,w,h).data;
-          const m=new Float32Array(n);let s=0;
-          for(let i=0;i<n;i++){const v=(md[i*4]/255)*(md[i*4+3]/255);m[i]=v;s+=v;}
-          const mean=s/n;
-          if(mean>0.02&&mean<0.985){
-            blur(m,w,h,2,2);
-            const bin=new Uint8Array(n);
-            for(let i=0;i<n;i++)bin[i]=m[i]>0.45?1:0;
-            fillHoles(bin,w,h);
-            const bf=new Float32Array(n);
-            for(let i=0;i<n;i++)bf[i]=bin[i];
-            blur(bf,w,h,2,2);
-            let cnt=0;
-            for(let i=0;i<n;i++){bin[i]=bf[i]>0.5?1:0;cnt+=bin[i];}
-            an.bin=bin;an.area=cnt/n;segOK=an.area>0.002;
-            if(segOK)log(`SEGMENTASI — subjek <span class="k">${(an.area*100).toFixed(1)}%</span> bingkai`);
-          }
-        }
-      }
-      if(!segOK){
-        fallbackSeg(an);
-        if(an.area<0.002){an.bin.fill(1);an.area=1;}
-        log('SEGMENTASI — <span class="e">tidak tersedia</span>, mode siluet');
-      }
-      setChip('seg',segOK?`SUBJEK ${Math.round(an.area*100)}%`:'MODE SILUET',segOK?'ok':'fail');
-
-      setProc('LANDMARK WAJAH…');
-      let faceOK=false;
-      if(ok){
-        const r=await mpSend(meshPipe,orig);
-        if(r&&r.multiFaceLandmarks&&r.multiFaceLandmarks.length){
-          an.lms=r.multiFaceLandmarks[0];an.face=true;faceOK=true;
-        }
-      }
-      if(faceOK){
-        buildFaceFields(an);
-        log(`LANDMARK — <span class="k">${an.lms.length} titik</span> · hierarki anatomis dibangun`);
-      }else{
-        setChip('lm','TIDAK TERDETEKSI','fail');
-        log('LANDMARK — <span class="e">wajah tidak terdeteksi</span>, relief berbasis bayangan');
-      }
-    }
-  }
-
-  an.maskSoft=new Float32Array(n);
-  for(let i=0;i<n;i++)an.maskSoft[i]=an.bin[i];
-  blur(an.maskSoft,w,h,2,2);
-
-  setProc('MEMBANGUN RELIEF…');
-  an.dist=distField(an.bin,w,h);
-  if(src!=='impor'){
-    buildDetail(an);
-    if(an.mode==='neural')buildNeuralBase(an);
-    else if(!an.face)buildFallbackBase(an);
-  }
-
-  an.time=performance.now()-t0;
-  A=an;
-  syncCtlAvailability();
-  $('#proc').classList.remove('on');
-  $('#btn-rerun').disabled=false;
-  analyzing=false;running=false;
+  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+  ctx.drawImage(depthCanvas,fit.x,fit.y,fit.w,fit.h);           // lapisan kedalaman (penuh)
+  const sx=fit.x+fit.w*S.split;
+  ctx.save();                                                    // lapisan asli terpotong kiri
+  ctx.beginPath(); ctx.rect(fit.x-1,fit.y-1,sx-fit.x+1,fit.h+2); ctx.clip();
+  ctx.drawImage(S.image,fit.x,fit.y,fit.w,fit.h);
+  ctx.restore();
+  ctx.strokeStyle='rgba(234,231,220,.16)';
+  ctx.strokeRect(fit.x+.5,fit.y+.5,fit.w,fit.h);
+  layoutOverlays(true);
 }
 
-/* mode IMPOR: luminance = kedalaman, latar dipaksa hitam */
-function runImportAnalysis(an){
-  const {w,h,n,lum}=an;
-  const border=[];
-  for(let x=0;x<w;x+=4){border.push(lum[x],lum[(h-1)*w+x]);}
-  for(let y=0;y<h;y+=4){border.push(lum[y*w],lum[y*w+w-1]);}
-  border.sort((a,b)=>a-b);
-  const bg=border[border.length>>1];
-  let src=lum;
-  if(bg>0.5){
-    src=new Float32Array(n);
-    for(let i=0;i<n;i++)src[i]=1-lum[i];
-    log('IMPOR — orientasi dibalik (latar → hitam)');
-  }
-  const bin=new Uint8Array(n);
-  const thr=Math.max(0.10,bg+0.10);
-  let cnt=0;
-  for(let i=0;i<n;i++){bin[i]=src[i]>thr?1:0;cnt+=bin[i];}
-  fillHoles(bin,w,h);
-  const bf=new Float32Array(n);
-  for(let i=0;i<n;i++)bf[i]=bin[i];
-  blur(bf,w,h,2,2);
-  cnt=0;
-  for(let i=0;i<n;i++){bin[i]=bf[i]>0.5?1:0;cnt+=bin[i];}
-  an.bin=bin;an.area=cnt/n;
-  if(an.area<0.005){an.bin.fill(1);an.area=1;}
-  /* normalisasi persentil dalam subjek — rentang penuh */
-  const vals=[];
-  for(let i=0;i<n;i+=5)if(bin[i])vals.push(src[i]);
-  let lo=0,hi=1;
-  if(vals.length){
-    vals.sort((a,b)=>a-b);
-    lo=vals[Math.floor(vals.length*0.02)];
-    hi=vals[Math.min(vals.length-1,Math.floor(vals.length*0.98))];
-  }
-  const ri=(hi-lo)>0.03?1/(hi-lo):0;
-  an.base=new Float32Array(n);
-  for(let i=0;i<n;i++)an.base[i]=bin[i]?clamp((src[i]-lo)*ri,0,1):0;
-  /* detail mikro dari peta sendiri (kecil — hindari grain JPEG) */
-  const small=Float32Array.from(src);blur(small,w,h,2,2);
-  const big=Float32Array.from(src);blur(big,w,h,Math.max(6,Math.round(Math.min(w,h)/10)),3);
-  an.detail=new Float32Array(n);
-  for(let i=0;i<n;i++)an.detail[i]=clamp(small[i]-big[i],-0.25,0.25);
-  an.mode='impor';
-  setChip('seg',`SUBJEK ${Math.round(an.area*100)}%`,'ok');
-  setChip('lm','—','');
-  setNeuralChip('LEWATI','');
-  setModels('MESIN — IMPOR','ok');
-  log(`IMPOR — depth map luar · subjek <span class="k">${(an.area*100).toFixed(1)}%</span> · protokol diterapkan (ramp, fillet, kurva Z, 16-bit)`);
+function layoutOverlays(show){
+  if(!show||!S.image){ els.wipe.style.display='none'; els.tagL.style.display=els.tagR.style.display='none'; return; }
+  els.wipe.style.display='block';
+  els.wipe.style.left=(fit.x+fit.w*S.split)+'px';
+  els.wipe.style.top=fit.y+'px';
+  els.wipe.style.height=fit.h+'px';
+  els.tagL.style.display=els.tagR.style.display='block';
+  els.tagL.style.left=(fit.x+10)+'px';  els.tagL.style.top=(fit.y+10)+'px';
+  els.tagR.style.left=(fit.x+fit.w-10)+'px'; els.tagR.style.top=(fit.y+10)+'px';
+  els.tagR.style.transform='translateX(-100%)';
 }
 
-function depthSeg(an){
-  const {w,h,n,neural}=an;
-  const border=[];
-  for(let x=0;x<w;x+=4){border.push(neural[x],neural[(h-1)*w+x]);}
-  for(let y=0;y<h;y+=4){border.push(neural[y*w],neural[y*w+w-1]);}
-  border.sort((a,b)=>a-b);
-  const bg=border[border.length>>1];
-  const vals=[];
-  for(let i=0;i<n;i+=7)vals.push(neural[i]);
-  vals.sort((a,b)=>a-b);
-  const hi=vals[Math.floor(vals.length*0.90)];
-  const thr=bg+0.30*Math.max(0.05,hi-bg);
-  const bin=new Uint8Array(n);let cnt=0;
-  for(let i=0;i<n;i++){bin[i]=neural[i]>thr?1:0;cnt+=bin[i];}
-  fillHoles(bin,w,h);
-  const bf=new Float32Array(n);
-  for(let i=0;i<n;i++)bf[i]=bin[i];
-  blur(bf,w,h,2,2);
-  cnt=0;
-  for(let i=0;i<n;i++){bin[i]=bf[i]>0.5?1:0;cnt+=bin[i];}
-  an.bin=bin;an.area=cnt/n;
-  return an.area>0.02;
-}
-
-function fallbackSeg(an){
-  const {w,h,n,lum}=an;
-  const vals=[];
-  for(let x=0;x<w;x+=4){vals.push(lum[x],lum[(h-1)*w+x]);}
-  for(let y=0;y<h;y+=4){vals.push(lum[y*w],lum[y*w+w-1]);}
-  vals.sort((a,b)=>a-b);
-  const bg=vals[vals.length>>1];
-  const cx=w/2,cy=h*0.44,sg=Math.max(w,h)*0.40;
-  const m=new Float32Array(n);
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-    const i=y*w+x,d=Math.abs(lum[i]-bg);
-    const dx=(x-cx)/sg,dy=(y-cy)/sg;
-    m[i]=clamp(d*2.2,0,1)*0.65+Math.exp(-(dx*dx+dy*dy)*0.5)*0.45;
-  }
-  blur(m,w,h,Math.max(3,Math.round(Math.min(w,h)*0.03)));
-  const bin=new Uint8Array(n);let cnt=0;
-  for(let i=0;i<n;i++){bin[i]=m[i]>0.5?1:0;cnt+=bin[i];}
-  fillHoles(bin,w,h);
-  an.bin=bin;an.area=cnt/n;
-}
-
-function buildFaceFields(an){
-  const {w,h,n,lms}=an;
-  const pt=i=>[lms[i].x*w,lms[i].y*h];
-  const fw=Math.hypot(lms[234].x-lms[454].x,lms[234].y-lms[454].y)*w;
-  an.faceW=Math.max(24,fw);
-  const poly=OVAL_IDX.map(pt);
-  const ovalHard=fillPoly(poly,w,h);
-  const oval=new Float32Array(n);
-  for(let i=0;i<n;i++)oval[i]=ovalHard[i];
-  blur(oval,w,h,Math.max(3,an.faceW*0.10));
-  an.oval=oval;
-  const prior=new Float32Array(n);
-  for(const g of GROUPS){
-    const sig=g.s*an.faceW;
-    for(const idx of g.idx){
-      if(idx<lms.length){const[cx,cy]=pt(idx);splat(prior,w,h,cx,cy,g.w,sig);}
-    }
-  }
-  if(lms.length>=478){
-    for(const idx of IRIS){const[cx,cy]=pt(idx);splat(prior,w,h,cx,cy,0.56,an.faceW*0.030);}
-  }
-  blur(prior,w,h,Math.max(2,an.faceW*0.085));
-  let mx=0;
-  for(let i=0;i<n;i++){prior[i]*=oval[i];if(oval[i]>0.3&&prior[i]>mx)mx=prior[i];}
-  const inv=mx>1e-5?1/mx:1;
-  for(let i=0;i<n;i++)prior[i]=Math.min(1,prior[i]*inv);
-  an.prior=prior;
-  const region=new Float32Array(n);
-  for(let i=0;i<n;i++)region[i]=an.bin[i]*(1-ovalHard[i]);
-  blur(region,w,h,Math.max(4,an.faceW*0.55));
-  let dm=0;for(let i=0;i<n;i++)if(region[i]>dm)dm=region[i];
-  const di=dm>1e-5?1/dm:1;
-  an.dome=new Float32Array(n);
-  for(let i=0;i<n;i++)an.dome[i]=region[i]*di;
-  setChip('lm',`${lms.length} TITIK · FW ${Math.round(an.faceW)}PX`,'ok');
-}
-
-function buildDetail(an){
-  const {w,h,n}=an;
-  if(an.mode==='neural'){
-    const src=an.neural;
-    const small=Float32Array.from(src);
-    blur(small,w,h,Math.max(2,Math.round(Math.min(w,h)/140)),2);
-    const big=Float32Array.from(src);
-    blur(big,w,h,Math.max(6,Math.round(Math.min(w,h)/11)),3);
-    an.detail=new Float32Array(n);
-    for(let i=0;i<n;i++)an.detail[i]=clamp(small[i]-big[i],-0.35,0.35);
-    return;
-  }
-  const fw=an.face?an.faceW:Math.min(w,h)*0.5;
-  const small=Float32Array.from(an.lum);
-  blur(small,w,h,Math.max(2,fw*0.035));
-  const big=Float32Array.from(an.lum);
-  blur(big,w,h,Math.max(6,fw*0.65));
-  an.detail=new Float32Array(n);
-  for(let i=0;i<n;i++)an.detail[i]=clamp(small[i]-big[i],-0.3,0.3);
-}
-
-/* v2.1: normalisasi persentil LINEAR — rentang penuh 0..1 dipakai,
-   kurva-S dan pahat struktur yang memberi bentuk pahatan */
-function buildNeuralBase(an){
-  const {w,h,n,bin,neural}=an;
-  const vals=[];
-  for(let i=0;i<n;i+=7)if(bin[i])vals.push(neural[i]);
-  let lo=0,hi=1;
-  if(vals.length){
-    vals.sort((a,b)=>a-b);
-    lo=vals[Math.floor(vals.length*0.01)];
-    hi=vals[Math.min(vals.length-1,Math.floor(vals.length*0.99))];
-  }
-  const ri=(hi-lo)>0.03?1/(hi-lo):0;
-  an.base=new Float32Array(n);
-  for(let i=0;i<n;i++)an.base[i]=bin[i]?clamp((neural[i]-lo)*ri,0,1):0;
-}
-
-function buildFallbackBase(an){
-  const {w,h,n}=an;
-  let dmx=0;for(let i=0;i<n;i++)if(an.dist[i]>dmx)dmx=an.dist[i];
-  const di=dmx>1?1/dmx:1;
-  const lb=Float32Array.from(an.lum);
-  blur(lb,w,h,Math.max(4,Math.round(Math.min(w,h)/14)));
-  const vals=[];
-  for(let i=0;i<n;i+=7)if(an.bin[i])vals.push(lb[i]);
-  let mn=0,mx=1;
-  if(vals.length){
-    vals.sort((a,b)=>a-b);
-    mn=vals[Math.floor(vals.length*0.05)];
-    mx=vals[Math.min(vals.length-1,Math.floor(vals.length*0.95))];
-  }
-  const ri=(mx-mn)>0.04?1/(mx-mn):0;
-  an.fBase=new Float32Array(n);
-  for(let i=0;i<n;i++){
-    const dome=ss(an.dist[i]*di);
-    const lumN=an.bin[i]?clamp((lb[i]-mn)*ri,0,1):0;
-    an.fBase[i]=(0.16+0.46*lumN+0.32*dome)*an.maskSoft[i];
-  }
-}
-
-/* ================================================================
-   TAHAP B — SINTESIS (v2.1: + PAHAT STRUKTUR)
-   ================================================================ */
-function readParams(){
-  return{
-    carve:+$('#c-carve').value,
-    zAmp:+$('#c-zAmp').value,
-    tension:+$('#c-tension').value,
-    rampW:+$('#c-rampW').value,
-    fillet:Math.round(+$('#c-fillet').value),
-    hairL:+$('#c-hairL').value,
-    detW:+$('#c-detW').value,
-    mm:parseFloat($('#c-mm').value)||10,
-    invert:$('#c-invert').checked,
-  };
-}
-
-function synthesize(){
-  if(!A||!A.dist)return;
-  const t0=performance.now();
-  const {w,h,n,bin,dist,oval,detail}=A;
-  const p=readParams();P=p;
-  const depth=new Float32Array(n);
-
-  if(A.mode==='impor'){
-    const detAmp=p.detW*0.35;
-    for(let i=0;i<n;i++)depth[i]=A.base[i]+detAmp*detail[i]*A.maskSoft[i];
-  }else if(A.mode==='neural'){
-    const detAmp=p.detW*0.55;
-    for(let i=0;i<n;i++)depth[i]=A.base[i]+detAmp*detail[i]*A.maskSoft[i];
-  }else if(A.face){
-    const detAmp=p.detW*0.5;
-    for(let i=0;i<n;i++){
-      const o=oval[i];
-      const mass=p.hairL*(0.80+0.40*A.dome[i]);
-      let v=mass*(1-o)+A.prior[i]*o;
-      v+=detAmp*detail[i]*o;
-      depth[i]=v;
-    }
-  }else{
-    const detAmp=p.detW*0.62;
-    for(let i=0;i<n;i++)depth[i]=A.fBase[i]+detAmp*detail[i]*A.maskSoft[i];
-  }
-
-  /* ramp kemunculan ekstra-lebar (kurva-S dari transformasi jarak) */
-  const rw=p.rampW,brw=Math.max(1,rw*0.9);
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-    const i=y*w+x;
-    depth[i]*=ss(dist[i]/rw)*ss(Math.min(x,y,w-1-x,h-1-y)/brw);
-  }
-
-  /* ---- PAHAT STRUKTUR (v2.1) ----
-     Band-pass skala fitur: (blur kecil − blur besar) diperkuat.
-     Inilah "EXTREME DEPTH CONTRAST" berbasis kurvature: struktur
-     (kepala, bibir, sayap, tulang pipi) terpisah jelas dari sekitarnya,
-     tanpa lompatan tajam — setelahnya tetap difilet. */
-  if(p.carve>0.02){
-    const rad=Math.sqrt((A.area*n)/Math.PI);
-    const R=Math.max(8,Math.round(rad/3));
-    const d1=Float32Array.from(depth);
-    blur(d1,w,h,Math.max(2,Math.round(R/3)),2);
-    const d2=Float32Array.from(depth);
-    blur(d2,w,h,R,3);
-    for(let i=0;i<n;i++)depth[i]+=p.carve*(d1[i]-d2[i]);
-  }
-
-  /* fillet: kelengkungan menerus, tanpa teras/plateau */
-  blur(depth,w,h,p.fillet,3);
-
-  /* kurva Z: tension-S + amplifikasi pangkat (monotonik & mulus) */
-  let mx=0;
-  for(let i=0;i<n;i++)if(depth[i]>mx)mx=depth[i];
-  const inv=mx>1e-6?1/mx:1,pe=1/p.zAmp,k=1-p.tension;
-  for(let i=0;i<n;i++){
-    let c=(depth[i]>0?depth[i]:0)*inv;
-    c=k*c+p.tension*ss(c);
-    c=Math.pow(c,pe);
-    depth[i]=bin[i]?c:0; /* latar: hitam murni */
-  }
-
-  D=depth;
-  A.Dn=Float32Array.from(D);
-  blur(A.Dn,w,h,1,2);
-  A.synthMs=performance.now()-t0;
-  renderDepth();
-  reliefDirty=true;
-  updateReadout();
-  ['btn-exp16','btn-exp8','btn-expRelief'].forEach(id=>$('#'+id).disabled=false);
-  if(view==='compare')renderCompare();
-}
-
-function renderDepth(){
-  const {w,h,n}=A;
-  depthCanvas.width=w;depthCanvas.height=h;
-  const img=dctx.createImageData(w,h),d=img.data;
-  for(let i=0;i<n;i++){
-    const v=Math.round(D[i]*255);
-    d[i*4]=v;d[i*4+1]=v;d[i*4+2]=v;d[i*4+3]=255;
-  }
-  dctx.putImageData(img,0,0);
-}
-
-/* ---------- render relief ---------- */
-function renderRelief(){
-  reliefDirty=false;
-  if(!A||!D)return;
-  const w=A.w,h=A.h;
-  const Dn=A.Dn||D;
-  const rs=Math.min(1,820/Math.max(w,h));
-  const rw=Math.max(1,Math.round(w*rs)),rh=Math.max(1,Math.round(h*rs));
-  reliefCanvas.width=rw;reliefCanvas.height=rh;
-  const img=rctx.createImageData(rw,rh),dd=img.data;
-  const M=MATS[mat];
-  const la=az*Math.PI/180,le=elev*Math.PI/180;
-  const Lx=Math.sin(la)*Math.cos(le),Ly=-Math.cos(la)*Math.cos(le),Lz=Math.sin(le);
-  let Hx=Lx,Hy=Ly,Hz=Lz+1;
-  const hl=Math.sqrt(Hx*Hx+Hy*Hy+Hz*Hz);Hx/=hl;Hy/=hl;Hz/=hl;
-  const K=26*rs,GMAX=1.9;
-  const ar=M.a[0],ag=M.a[1],ab=M.a[2],sr=M.sc[0],sg=M.sc[1],sb=M.sc[2],sp=M.sp;
-  let o=0;
-  for(let Y=0;Y<rh;Y++){
-    const sy=clamp(Math.round(Y/rs),1,h-2),rY=sy*w;
-    for(let X=0;X<rw;X++,o+=4){
-      const sx=clamp(Math.round(X/rs),1,w-2),i=rY+sx;
-      if(!A.bin[i]&&D[i]<0.004){dd[o]=dd[o+1]=dd[o+2]=0;dd[o+3]=255;continue;}
-      const gx=clamp((Dn[i+1]-Dn[i-1])*K,-GMAX,GMAX);
-      const gy=clamp((Dn[i+w]-Dn[i-w])*K,-GMAX,GMAX);
-      const nx=-gx,ny=-gy;
-      const il=1/Math.sqrt(nx*nx+ny*ny+1),nz=il;
-      const ndl=(nx*il)*Lx+(ny*il)*Ly+nz*Lz;
-      const dif=Math.max(0,(ndl+0.35)/1.35);
-      const ndh=(nx*il)*Hx+(ny*il)*Hy+nz*Hz;
-      let spec=0;
-      if(ndh>0){const s2=ndh*ndh,s4=s2*s2,s8=s4*s4,s16=s8*s8,s32=s16*s16;spec=s32*s16*sp;}
-      const kd=(0.20+0.85*dif)*(0.55+0.45*nz);
-      const R=ar*kd+spec*sr,G=ag*kd+spec*sg,B=ab*kd+spec*sb;
-      dd[o]=R>255?255:R;dd[o+1]=G>255?255:G;dd[o+2]=B>255?255:B;dd[o+3]=255;
-    }
-  }
-  rctx.putImageData(img,0,0);
-}
-function queueRelief(){
-  if(reliefRAF)return;
-  reliefRAF=requestAnimationFrame(()=>{reliefRAF=0;renderRelief();});
-}
-function stopSweep(){sweepId++;}
-function sweepLight(){
-  stopSweep();
-  const id=++sweepId,t0=performance.now(),dur=1700;
-  const a0=-375,a1=-60,e0=16,e1=elev;
+function animateReveal(){
+  const from=.02, to=.5, dur=750, t0=performance.now();
+  cancelAnimationFrame(revealRaf);
   (function step(){
-    if(id!==sweepId)return;
-    const t=clamp((performance.now()-t0)/dur,0,1),e=t*t*(3-2*t);
-    az=lerp(a0,a1,e);elev=lerp(e0,e1,e);
-    renderRelief();updateReadout();
-    if(t<1)requestAnimationFrame(step);
+    const t=Math.min(1,(performance.now()-t0)/dur);
+    S.split=from+(to-from)*(1-Math.pow(1-t,3));
+    draw2D();
+    if(t<1) revealRaf=requestAnimationFrame(step);
   })();
 }
 
-function renderCompare(){
-  if(!A||!D)return;
-  const {w,h}=A;
-  if(cmpCanvas.width!==w){cmpCanvas.width=w;cmpCanvas.height=h;}
-  cctx.drawImage(A.orig,0,0);
-  const x=Math.round(cmpX*w);
-  cctx.save();cctx.beginPath();cctx.rect(x,0,w-x,h);cctx.clip();
-  cctx.drawImage(depthCanvas,0,0);cctx.restore();
-  cctx.fillStyle='#c8a44e';
-  cctx.fillRect(x-1,0,2,h);
-  cctx.save();cctx.translate(x,h/2);cctx.rotate(Math.PI/4);cctx.fillRect(-6,-6,12,12);cctx.restore();
+/* knob geser */
+let dragWipe=false;
+els.knob.addEventListener('pointerdown',e=>{ dragWipe=true; els.knob.setPointerCapture(e.pointerId); e.stopPropagation(); });
+els.knob.addEventListener('pointermove',e=>{
+  if(!dragWipe) return;
+  const r=els.cwrap.getBoundingClientRect();
+  S.split=Math.min(.98,Math.max(.02,(e.clientX-r.left-fit.x)/fit.w));
+  draw2D();
+});
+els.knob.addEventListener('pointerup',()=>dragWipe=false);
+els.knob.addEventListener('lostpointercapture',()=>dragWipe=false);
+
+/* readout nilai Z mengikuti kursor */
+els.cwrap.addEventListener('pointermove',e=>{
+  if(dragWipe||!S.depthFloat){ els.readout.style.display='none'; return; }
+  const r=els.cwrap.getBoundingClientRect();
+  const px=e.clientX-r.left, py=e.clientY-r.top;
+  const u=(px-fit.x)/fit.w, v=(py-fit.y)/fit.h;
+  if(u<0||u>1||v<0||v>1){ els.readout.style.display='none'; return; }
+  const z=sampleDepth(u,v);
+  els.readout.style.display='block';
+  els.readout.style.left=(px+16)+'px';
+  els.readout.style.top=(py+16)+'px';
+  els.readout.innerHTML=`Z <b>${z.toFixed(2)}</b> · ${z>.66?'DEKAT':z<.33?'JAUH':'MENENGAH'}`;
+});
+els.cwrap.addEventListener('pointerleave',()=>els.readout.style.display='none');
+
+/* ── relief 3D (three.js) ── */
+let renderer=null, scene, camera, controls, group=null, vertexDepth=null, baseW=3, baseH=3;
+const texCanvas=document.createElement('canvas');
+
+function makeTextureCanvas(){
+  const m=1600, sc=Math.min(1,m/Math.max(S.imageW,S.imageH));
+  texCanvas.width=Math.round(S.imageW*sc);
+  texCanvas.height=Math.round(S.imageH*sc);
+  texCanvas.getContext('2d').drawImage(S.image,0,0,texCanvas.width,texCanvas.height);
 }
 
-const HINTS={
-  depth:'ARAHKAN KURSOR PADA KANVAS UNTUK MEMBACA NILAI Z',
-  relief:'SERET PADA KANVAS UNTUK MEMUTAR ARAH CAHAYA — PERIKSA KELENGKUNGAN LERENG',
-  compare:'SERET PEMBATAS UNTUK MEMBANDINGKAN SUMBER DENGAN DEPTH MAP',
-};
-function setView(v){
-  view=v;
-  $$('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
-  $$('.view').forEach(el=>el.classList.toggle('on',el.dataset.view===v));
-  $('#viewHint').textContent=HINTS[v]||'';
-  if(v==='relief'&&A&&reliefDirty)renderRelief();
-  if(v==='compare')renderCompare();
-  updateReadout();
-}
-function updateReadout(){
-  const ro=$('#readout');
-  if(!A||!D){ro.innerHTML='<span>menunggu sumber…</span>';return;}
-  const p=P||readParams();
-  const azd=Math.round(((az%360)+360)%360);
-  const mode=A.mode==='impor'?'IMPOR':(A.mode==='neural'?'NEURAL':(A.face?'ANATOMIS':'BAYANGAN'));
-  ro.innerHTML=
-    `<span>DIM <b>${A.w}×${A.h}</b></span>`+
-    `<span>SUBJEK <b>${(A.area*100).toFixed(1)}%</b></span>`+
-    `<span>MODE <span class="acc">${mode}</span></span>`+
-    `<span>PAHAT <span class="acc">${autoMode?'AUTO':'MANUAL'}</span></span>`+
-    `<span>RAMP <b>${p.rampW}px</b></span>`+
-    `<span>PUNCAK <b>${p.mm.toFixed(1)}mm</b></span>`+
-    `<span>SINTESIS <b>${(A.synthMs||0).toFixed(0)}ms</b></span>`+
-    (view==='relief'?`<span>CAHAYA <span class="acc">${azd}°/${Math.round(elev)}°</span></span>`:'');
-}
-function syncCtlAvailability(){
-  const off=!!(A&&(A.mode==='neural'||A.mode==='impor'));
-  $('#ctl-hairL').classList.toggle('off',off);
+function initThree(){
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  els.threeWrap.appendChild(renderer.domElement);
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(42,1,.1,100);
+  camera.position.set(0,.9,4.6);
+  controls=new OrbitControls(camera,renderer.domElement);
+  controls.enableDamping=true; controls.dampingFactor=.08;
+  controls.minDistance=1.4; controls.maxDistance=12;
+  controls.autoRotate=true; controls.autoRotateSpeed=.8;
+  controls.addEventListener('start',()=>controls.autoRotate=false);
+  const grid=new THREE.GridHelper(9,30,0x3A3B30,0x1B1C16);
+  grid.material.transparent=true; grid.material.opacity=.55;
+  grid.position.y=-2.05;
+  scene.add(grid);
+  loop3D();
 }
 
-/* ---------- AUTO-TUNE ---------- */
-function autoTune(){
-  if(!A||!A.dist)return null;
-  const {n,bin,lum}=A;
-  const rad=Math.sqrt((A.area*n)/Math.PI);
-  const rampW=Math.round(clamp(rad*0.11,28,64));
-  if(A.mode==='neural'){
-    return{carve:0.55,zAmp:1.50,tension:0.75,rampW,
-           fillet:Math.round(clamp(rad/160,2,8)),hairL:0.30,detW:0.30};
+function build3D(){
+  if(!S.hasResult) return;
+  if(!renderer) initThree();
+  if(group){
+    scene.remove(group);
+    group.traverse(o=>{ o.geometry&&o.geometry.dispose(); o.material&&(o.material.map&&o.material.map.dispose(),o.material.dispose()); });
   }
-  if(A.mode==='impor'){
-    return{carve:0.35,zAmp:1.30,tension:0.70,rampW,
-           fillet:2,hairL:0.30,detW:0.15};
-  }
-  const vals=[];
-  for(let i=0;i<n;i+=7){if(bin[i])vals.push(lum[i]);}
-  if(vals.length<20)return null;
-  vals.sort((a,b)=>a-b);
-  const q=p=>vals[Math.min(vals.length-1,Math.floor(p*vals.length))];
-  const range=clamp(q(0.92)-q(0.08),0.05,1);
-  const fw=A.face?A.faceW:Math.max(40,rad*0.7);
-  return{
-    carve:0.45,
-    zAmp:A.face?+clamp(1.30-range*0.30,0.90,1.40).toFixed(2)
-               :+clamp(1.75-range*1.10,0.80,2.20).toFixed(2),
-    tension:A.face?0.60:+clamp(0.40+range*0.30,0.40,0.70).toFixed(2),
-    rampW,
-    fillet:Math.round(clamp(fw/60,3,12)),
-    hairL:A.face?0.34:0.30,
-    detW:A.face?0.30:+clamp(0.45+range*0.30,0.40,0.80).toFixed(2),
-  };
-}
-function refreshOutputs(){
-  for(const [id,fmt] of CTL){
-    const el=$('#'+id);
-    el.closest('.ctl').querySelector('output').textContent=fmt(el.value);
-  }
-}
-function syncAutoSeg(){
-  $$('#autoSeg button').forEach(b=>b.classList.toggle('on',(b.dataset.auto==='1')===autoMode));
-}
-function applyAuto(){
-  if(!autoMode)return false;
-  const p=autoTune();
-  if(!p)return false;
-  const map={carve:'c-carve',zAmp:'c-zAmp',tension:'c-tension',rampW:'c-rampW',fillet:'c-fillet',hairL:'c-hairL',detW:'c-detW'};
-  for(const k in map)$('#'+map[k]).value=p[k];
-  refreshOutputs();
-  log(`AUTO — Z <span class="k">${p.zAmp.toFixed(2)}</span> · kontras <span class="k">${Math.round(p.tension*100)}%</span> · pahat <span class="k">${p.carve.toFixed(2)}</span> · ramp <span class="k">${p.rampW}px</span>`);
-  return true;
+  S.dirty3d=false;
+  const aspect=S.imageW/S.imageH, MAX=3.3;
+  let W,H;
+  if(aspect>=1){ W=MAX; H=MAX/aspect; } else { H=MAX; W=MAX*aspect; }
+  baseW=W; baseH=H;
+
+  const segX=200, segY=Math.max(8,Math.round(segX*H/W));
+  const geo=new THREE.PlaneGeometry(W,H,segX,segY);
+  const pos=geo.attributes.position, uv=geo.attributes.uv;
+  vertexDepth=new Float32Array(pos.count);
+  for(let i=0;i<pos.count;i++) vertexDepth[i]=sampleDepth(uv.getX(i),1-uv.getY(i));
+
+  const tex=new THREE.CanvasTexture(texCanvas);
+  tex.colorSpace=THREE.SRGBColorSpace;
+  tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
+  const mesh=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}));
+  const wire=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:0xF0A33A,wireframe:true,transparent:true,opacity:.08}));
+  group=new THREE.Group();
+  group.add(mesh,wire);
+  scene.add(group);
+  applyRelief();
 }
 
-/* ---------- unggah gambar ---------- */
-const IMG_EXT=/\.(jpe?g|png|webp|bmp|gif|avif|tiff?)$/i;
-function handleFiles(files){
-  const f=files&&files[0];
-  if(!f)return;
-  if(running){toast('Masih memproses — mohon tunggu');return;}
-  if(!f.type.startsWith('image/')&&!IMG_EXT.test(f.name||'')){
-    toast('Format berkas tidak didukung');
-    return;
-  }
-  const url=URL.createObjectURL(f);
-  const img=new Image();
-  img.onload=async()=>{
-    srcImg=img;srcName=f.name||'pasted-image';
-    $('#fileMeta').textContent=`${srcName} · ${img.naturalWidth}×${img.naturalHeight}`;
-    $('#empty').style.display='none';
-    await runAll();
-    if(A&&D){
-      log(`SINTESIS — ${A.w}×${A.h} dalam <span class="k">${A.synthMs.toFixed(0)} ms</span> · mode ${A.mode==='impor'?'IMPOR':(A.mode==='neural'?'NEURAL':(A.face?'ANATOMIS':'BAYANGAN'))}`);
-      setView('relief');
-      sweepLight();
-    }
-  };
-  img.onerror=()=>toast('Gagal memuat gambar — format mungkin tidak didukung peramban');
-  img.src=url;
+function applyRelief(){
+  if(!group) return;
+  const pos=group.children[0].geometry.attributes.position;
+  const sc=Math.min(baseW,baseH)*.55*S.relief;
+  for(let i=0;i<pos.count;i++) pos.setZ(i,vertexDepth[i]*sc);
+  pos.needsUpdate=true;
 }
 
-async function runAll(){
-  await runAnalysis();
-  applyAuto();
-  synthesize();
-  if(view==='relief')renderRelief();
+function resize3D(){
+  if(!renderer) return;
+  const w=els.threeWrap.clientWidth, h=els.threeWrap.clientHeight;
+  if(!w||!h) return;
+  renderer.setSize(w,h,false);
+  camera.aspect=w/h;
+  camera.updateProjectionMatrix();
 }
 
-/* ---------- ekspor ---------- */
-function download(blob,name){
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);a.download=name;
-  document.body.appendChild(a);a.click();
-  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
-}
- $('#btn-exp16').addEventListener('click',()=>{
-  if(!D)return;
-  const {w,h,n}=A,g=new Uint16Array(n);
-  for(let i=0;i<n;i++){
-    const v=Math.round(D[i]*65535);
-    g[i]=P.invert?65535-v:v;
-  }
-  download(encodeGrayPNG16(w,h,g),`basrelief-${w}x${h}-16bit.png`);
-  log(`EKSPOR — <span class="k">PNG grayscale 16-bit</span> · 65.536 tinggi kedalaman${P.invert?' · terinversi':''}`);
-  toast('PNG 16-bit diekspor — siap dimuat ke Vectric Aspire');
-});
- $('#btn-exp8').addEventListener('click',()=>{
-  if(!D)return;
-  const c=mkCanvas(A.w,A.h),x=c.getContext('2d');
-  x.drawImage(depthCanvas,0,0);
-  if(P.invert){
-    const id=x.getImageData(0,0,A.w,A.h),d=id.data;
-    for(let i=0;i<d.length;i+=4){d[i]=255-d[i];d[i+1]=255-d[i+1];d[i+2]=255-d[i+2];}
-    x.putImageData(id,0,0);
-  }
-  c.toBlob(b=>{
-    download(b,`basrelief-${A.w}x${A.h}-8bit.png`);
-    log('EKSPOR — PNG 8-bit');
-  },'image/png');
-});
- $('#btn-expRelief').addEventListener('click',()=>{
-  if(!D)return;
-  if(reliefDirty)renderRelief();
-  reliefCanvas.toBlob(b=>{
-    download(b,`basrelief-render-${mat}.png`);
-    log(`EKSPOR — render material <span class="k">${mat==='brass'?'kuningan':'batu'}</span>`);
-  },'image/png');
-});
-
-/* ---------- interaksi kanvas ---------- */
-reliefCanvas.addEventListener('pointerdown',e=>{
-  relDrag=true;lastPX=e.clientX;lastPY=e.clientY;
-  reliefCanvas.setPointerCapture(e.pointerId);stopSweep();
-});
-reliefCanvas.addEventListener('pointermove',e=>{
-  if(!relDrag)return;
-  az+=(e.clientX-lastPX)*0.4;
-  elev=clamp(elev-(e.clientY-lastPY)*0.35,8,80);
-  lastPX=e.clientX;lastPY=e.clientY;
-  queueRelief();updateReadout();
-});
-reliefCanvas.addEventListener('pointerup',()=>relDrag=false);
-reliefCanvas.addEventListener('pointercancel',()=>relDrag=false);
-
-cmpCanvas.addEventListener('pointerdown',e=>{
-  cmpDrag=true;cmpCanvas.setPointerCapture(e.pointerId);cmpMove(e);
-});
-cmpCanvas.addEventListener('pointermove',e=>{if(cmpDrag)cmpMove(e);});
-cmpCanvas.addEventListener('pointerup',()=>cmpDrag=false);
-cmpCanvas.addEventListener('pointercancel',()=>cmpDrag=false);
-function cmpMove(e){
-  const r=cmpCanvas.getBoundingClientRect();
-  cmpX=clamp((e.clientX-r.left)/r.width,0.02,0.98);
-  renderCompare();
+function loop3D(){
+  requestAnimationFrame(loop3D);
+  if(S.mode!=='3d'||!renderer) return;
+  controls.update();
+  renderer.render(scene,camera);
 }
 
-const tip=$('#tip');
-depthCanvas.addEventListener('mousemove',e=>{
-  if(!A||!D)return;
-  const r=depthCanvas.getBoundingClientRect();
-  const x=clamp(Math.floor((e.clientX-r.left)/r.width*A.w),0,A.w-1);
-  const y=clamp(Math.floor((e.clientY-r.top)/r.height*A.h),0,A.h-1);
-  const v=D[y*A.w+x];
-  const mm=parseFloat($('#c-mm').value)||10;
-  tip.textContent=`Z ${v.toFixed(3)} · ${(v*mm).toFixed(1)} / ${mm} mm`;
-  const vr=$('#viewport').getBoundingClientRect();
-  tip.style.display='block';
-  tip.style.left=Math.min(e.clientX-vr.left+16,vr.width-140)+'px';
-  tip.style.top=Math.max(e.clientY-vr.top-30,6)+'px';
-});
-depthCanvas.addEventListener('mouseleave',()=>tip.style.display='none');
+/* ── pemuatan model ── */
+let pipe=null;
+const fileProg=new Map();
 
-/* ---------- kontrol ---------- */
-const CTL=[
-  ['c-carve',  v=>(+v).toFixed(2)],
-  ['c-zAmp',   v=>(+v).toFixed(2)],
-  ['c-tension',v=>Math.round(v*100)+'%'],
-  ['c-rampW',  v=>v+' px'],
-  ['c-fillet', v=>v+' px'],
-  ['c-hairL',  v=>(+v).toFixed(2)],
-  ['c-detW',   v=>Math.round(v*100)+'%'],
-];
-for(const [id,fmt] of CTL){
-  const el=$('#'+id),out=el.closest('.ctl').querySelector('output');
-  const upd=()=>out.textContent=fmt(el.value);
-  upd();
-  el.addEventListener('input',()=>{
-    if(autoMode){
-      autoMode=false;syncAutoSeg();
-      log('MODE PEMAHATAN — <span class="k">manual</span> · auto-tune dinonaktifkan');
-    }
-    upd();
-    clearTimeout(synthTimer);
-    synthTimer=setTimeout(()=>{
-      if(A&&!analyzing){synthesize();if(view==='relief')renderRelief();}
-    },60);
-  });
+function showOverlay(label,pct,indet,sub){
+  els.overlay.style.display='flex';
+  els.olabel.textContent=label;
+  els.opct.textContent=indet?'—':pct+'%';
+  els.obarFill.style.width=indet?'40%':pct+'%';
+  els.obarFill.style.animation=indet?'sweep 1s linear infinite':'none';
+  els.ofile.textContent=sub||'';
+}
+const hideOverlay=()=>els.overlay.style.display='none';
+const setBackend=t=>els.backend.textContent=t;
+
+function onProgress(p){
+  if(p.status!=='progress'||!p.total) return;
+  fileProg.set(p.file,{loaded:p.loaded,total:p.total});
+  let L=0,T=0;
+  for(const f of fileProg.values()){ L+=f.loaded; T+=f.total; }
+  showOverlay('MENGUNDUH MODEL', T?Math.round(L/T*100):0, false,
+    `${p.file} · ${(L/1048576).toFixed(0)} / ${(T/1048576).toFixed(0)} MB`);
 }
 
- $$('#srcSeg button').forEach(b=>b.addEventListener('click',()=>{
-  if(b.classList.contains('on'))return;
-  $$('#srcSeg button').forEach(x=>x.classList.toggle('on',x===b));
-  log(`SUMBER — mode <span class="k">${b.dataset.src==='impor'?'depth map luar (AI)':'foto / objek'}</span>`);
-  if(srcImg)runAll();
-}));
-
- $$('#autoSeg button').forEach(b=>b.addEventListener('click',()=>{
-  const want=b.dataset.auto==='1';
-  if(want===autoMode)return;
-  autoMode=want;syncAutoSeg();
-  if(want)log('MODE PEMAHATAN — <span class="k">auto</span> · parameter dihitung dari statistik gambar');
-  if(autoMode&&A){
-    applyAuto();synthesize();
-    if(view==='relief')renderRelief();
-  }
-}));
-
- $$('.seg button').forEach(b=>b.addEventListener('click',()=>{
-  mat=b.dataset.mat;
-  $$('.seg button').forEach(x=>x.classList.toggle('on',x===b));
-  if(A)renderRelief();
-}));
- $('#c-mm').addEventListener('input',updateReadout);
- $('#c-invert').addEventListener('change',e=>{
-  log(`EKSPOR — inversi kedalaman ${e.target.checked?'<span class="k">aktif</span>':'nonaktif'}`);
-});
- $('#c-neural').addEventListener('change',e=>{
-  log(`NEURAL — ${e.target.checked?'<span class="k">aktif</span>':'nonaktif'} · memproses ulang…`);
-  if(srcImg)runAll();
-});
- $$('.tabs button').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
- $('#resSel').addEventListener('change',()=>{if(srcImg)runAll();});
- $('#btn-rerun').addEventListener('click',()=>{if(srcImg)runAll();});
-
-/* dropzone */
-const drop=$('#drop'),fileInput=$('#fileInput');
-drop.addEventListener('click',()=>fileInput.click());
- $('#empty').addEventListener('click',()=>fileInput.click());
-fileInput.addEventListener('change',()=>handleFiles(fileInput.files));
-drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
-drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
-drop.addEventListener('drop',e=>{
-  e.preventDefault();drop.classList.remove('over');
-  handleFiles(e.dataTransfer.files);
-});
-['dragover','drop'].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault()));
-document.addEventListener('paste',e=>{
-  const items=e.clipboardData&&e.clipboardData.items;if(!items)return;
-  for(const it of items){
-    if(it.type.indexOf('image')===0){const f=it.getAsFile();if(f)handleFiles([f]);break;}
-  }
-});
-
-/* ---------- modal protokol ---------- */
-const PROTOCOL_TXT=
-`# YOU ARE EXPERT DEPTHMAP GENERATOR SOFTWARE
-# STEP 1 — INPUT
-An original image is uploaded.
-# STEP 2 — CONTROLLED STYLE CONVERSION
-Convert the image into a monochromatic Art Deco bas-relief style. The main subject MUST remain identical to the original (100% fidelity): same geometry, same pose, same proportions, no reinterpretation, no invented decorations. The transformation is purely stylistic — the subject must appear sculpted, not redesigned. Background: pure black (#000000), uniform and empty.
-# STEP 3 — DEEP BAS-RELIEF DEPTH MAP
-From the styled image, generate an extremely deep, high-contrast, high-precision depth map optimized for aggressive Z-scale amplification while remaining fully rounded and machinable.
-# ROLE
-High-precision Depth Map Generator optimized for CNC Routers and Vectric Aspire. Output: 32-bit floating-point grayscale heightmap for deep physical carving.
-# CORE DIRECTIVES
-- Treat all skin areas as smooth, continuous sculpted solid; remove noise, grain, pores and paper texture.
-- Preserve full anatomical curvature with exaggerated depth; surfaces stay convex or smoothly concave — never planar.
-- No terraces, no flat plateaus, no stepped depth zones.
-# MICRO-RELIEF (DEEP MODE)
-- Eyes: eyelids, eye sockets, iris, pupil — readable, deep, fully rounded.
-- Eyebrows rendered as broad volumetric ridges.
-- Nose bridge, nostrils and tip; lips, philtrum and mouth separation.
-- Jawline, chin and cheek transitions — filleted with progressive curvature, no sharp inflection points.
-# HAIR
-- A single coherent volumetric mass — no strands, no lines, no texture.
-- Hair depth significantly lower than facial peaks; transitions long, smooth and rounded.
-# EXTREME DEPTH CONTRAST
-- Separate landmarks using curvature and slope length, not abrupt height jumps.
-- Nose, brow ridge, lips and cheekbones must project clearly forward; no compression or clipping of depth values.
-# EDGE HANDLING
-- Extra-wide rounded emergence ramp into black: 30–50 pixels minimum, long S-curve easing for entry and exit.
-- No vertical walls, no cut edges.
-# DEPTH HIERARCHY
-- Highest elevation: nose tip, brow ridge, forehead apex, upper cheekbones.
-- Mid-high elevation: lips, eye sockets, cheeks.
-- Lower elevation: hair mass, jawline, neck. Background: pure black (#000000).
-# Z-SCALE STABILITY (ABSOLUTE PRIORITY)
-- The relief must remain fully rounded at all magnifications; zero banding, terracing or contour artifacts.
-- Replace any steep transition with a smooth filleted ramp; enforce C2 curvature continuity across the entire surface.
-- Preserve peak height clarity, facial feature separation and anatomical readability; never collapse or flatten deep features.
-# STRICTLY FORBIDDEN
-- No noise, no grain, no dithering, no texture simulation.
-- No individual hair strands, no hard edges, no stepped depth levels, no plateaus.
-- No flattening of facial anatomy. No text.
-# ACTIVATION
-Generate a 32-bit floating-point grayscale depth map suitable for Vectric Aspire CNC carving — a very deep bas-relief with strong sculptural presence, fully rounded profiles, continuous smooth slopes, and zero visible Z-step artifacts even at extreme depth scaling.`;
-
-function renderProtocol(){
-  let html='',inUl=false;
-  for(const ln of PROTOCOL_TXT.split('\n')){
-    const t=ln.trim();
-    if(!t){if(inUl){html+='</ul>';inUl=false;}continue;}
-    if(t.startsWith('#')){
-      if(inUl){html+='</ul>';inUl=false;}
-      html+=`<h3>${t.slice(1).trim()}</h3>`;
-    }else if(t.startsWith('- ')){
-      if(!inUl){html+='<ul>';inUl=true;}
-      html+=`<li>${t.slice(2)}</li>`;
-    }else{
-      if(inUl){html+='</ul>';inUl=false;}
-      html+=`<p>${t}</p>`;
-    }
-  }
-  if(inUl)html+='</ul>';
-  $('#docBody').innerHTML=html;
-}
- $('#btn-protocol').addEventListener('click',()=>{
-  $('#modal').classList.add('on');document.body.style.overflow='hidden';
-});
-const closeModal=()=>{$('#modal').classList.remove('on');document.body.style.overflow='';};
- $('#btn-close-modal').addEventListener('click',closeModal);
- $('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
- $('#btn-copy').addEventListener('click',async()=>{
+async function initModel(){
+  els.chip.classList.add('busy');
+  setBackend('MEMUAT MODEL');
+  showOverlay('MENYIAPKAN ENGINE',0,true,'depth-anything-v2-small · ONNX');
+  let device='wasm', dtype='q8';
   try{
-    await navigator.clipboard.writeText(PROTOCOL_TXT);
-    toast('Protokol disalin ke clipboard');
+    if(navigator.gpu){ const ad=await navigator.gpu.requestAdapter(); if(ad){ device='webgpu'; dtype='fp32'; } }
+  }catch(e){}
+
+  const load=opt=>pipeline('depth-estimation',MODEL_ID,opt);
+  try{
+    pipe=await load({device,dtype,progress_callback:onProgress});
   }catch(e){
-    toast('Gagal menyalin — salin manual dari modal');
+    if(device!=='webgpu'){
+      console.error(e);
+      showOverlay('GAGAL MEMUAT MODEL',0,false,'periksa koneksi internet lalu muat ulang');
+      toast('Model gagal dimuat — periksa koneksi internet',true);
+      return;
+    }
+    toast('WebGPU gagal diinisialisasi — beralih ke WASM',true);
+    device='wasm'; dtype='q8'; fileProg.clear();
+    try{ pipe=await load({device,dtype,progress_callback:onProgress}); }
+    catch(e2){
+      console.error(e2);
+      showOverlay('GAGAL MEMUAT MODEL',0,false,'periksa koneksi internet lalu muat ulang');
+      return;
+    }
+  }
+  S.ready=true; S.dtype=dtype;
+  S.backendLabel=device==='webgpu'?'WEBGPU · SIAP':'WASM · SIAP';
+  els.chip.classList.add('on'); els.chip.classList.remove('busy');
+  setBackend(S.backendLabel);
+  els.sbBackend.textContent=device.toUpperCase()+' · '+dtype.toUpperCase();
+  hideOverlay();
+  updateMeta();
+  if(S.pending){ S.pending=false; processBlob(S.blob,S.srcName); }
+}
+
+/* ── pipeline inferensi ── */
+async function processBlob(blob,name){
+  S.blob=blob; S.srcName=name||'GAMBAR';
+  els.srcMeta.textContent=S.srcName.toUpperCase();
+  if(!S.ready){ S.pending=true; showOverlay('MENUNGGU MODEL…',0,true,'akan diproses otomatis'); return; }
+  if(S.busy) return;
+  S.busy=true;
+  els.busy.style.display='block';
+  els.chip.classList.add('busy');
+  setBackend('MEMINDAI…');
+  try{
+    const t0=performance.now();
+    const img=await RawImage.fromBlob(blob);
+    const out=await pipe(img);
+    S.inferMs=performance.now()-t0;
+
+    const rim=out.depth;
+    let data=rim.data;
+    if(rim.channels>1){ // jaga-jaga jika buffer bukan 1 kanal
+      const nd=new Uint8ClampedArray(rim.width*rim.height);
+      for(let i=0;i<nd.length;i++) nd[i]=data[i*rim.channels];
+      data=nd;
+    }
+    S.rawDepth=data; S.depthW=rim.width; S.depthH=rim.height;
+    computeFloat(); buildDepthCanvas();
+
+    S.image=await createImageBitmap(blob);
+    S.imageW=S.image.width; S.imageH=S.image.height;
+    makeTextureCanvas();
+
+    S.hasResult=true; S.dirty3d=true;
+    els.viewport.classList.add('live');
+    els.empty.style.display='none';
+    els.tab2d.disabled=els.tab3d.disabled=false;
+    els.dl.disabled=false;
+    els.srcMeta.textContent=`${S.srcName.toUpperCase()} · ${S.imageW}×${S.imageH}`;
+    if(S.mode==='3d') build3D();
+    else { draw2D(); animateReveal(); }
+    updateMeta();
+  }catch(err){
+    console.error(err);
+    toast('Gagal memproses gambar: '+(err.message||err),true);
+  }finally{
+    S.busy=false;
+    els.busy.style.display='none';
+    els.chip.classList.remove('busy');
+    setBackend(S.backendLabel);
+  }
+}
+
+function updateMeta(){
+  const parts=[
+    S.image ?`SUMBER <b>${S.imageW}×${S.imageH}</b>`:'SUMBER —',
+    S.depthW?`DEPTH <b>${S.depthW}×${S.depthH}</b>`  :'DEPTH —',
+    S.inferMs?`INFERENSI <b>${Math.round(S.inferMs)} MS</b>`:'INFERENSI —',
+    S.dtype ?`ENGINE <b>${S.backendLabel.split(' ')[0]} · ${S.dtype.toUpperCase()}</b>`:'ENGINE —',
+  ];
+  els.meta.innerHTML=parts.join('&ensp;·&ensp;');
+}
+
+/* ── sumber gambar ── */
+function useFile(f){
+  if(!f.type.startsWith('image/')){ toast('Berkas bukan gambar',true); return; }
+  processBlob(f,f.name.replace(/\.[^.]+$/,''));
+}
+els.fileInput.addEventListener('change',e=>{ const f=e.target.files[0]; if(f) useFile(f); e.target.value=''; });
+els.drop.addEventListener('click',()=>els.fileInput.click());
+els.empty.addEventListener('click',()=>els.fileInput.click());
+['dragenter','dragover'].forEach(ev=>els.viewport.addEventListener(ev,e=>{ e.preventDefault(); els.viewport.classList.add('hot'); }));
+['dragleave','drop'].forEach(ev=>els.viewport.addEventListener(ev,e=>{ e.preventDefault(); els.viewport.classList.remove('hot'); }));
+els.viewport.addEventListener('drop',e=>{
+  const f=[...e.dataTransfer.files].find(f=>f.type.startsWith('image/'));
+  if(f) useFile(f);
+});
+document.addEventListener('paste',e=>{
+  const it=[...e.clipboardData.items].find(i=>i.type.startsWith('image/'));
+  if(it) processBlob(it.getAsFile(),'tempelan');
+});
+
+/* gambar contoh (picsum, tanpa key) */
+const SEEDS=['seaside','ridge','harbor','canyon'];
+SEEDS.forEach(seed=>{
+  const b=document.createElement('button');
+  b.title='Contoh: '+seed;
+  const im=document.createElement('img');
+  im.src=`https://picsum.photos/seed/${seed}/160/120.jpg`;
+  im.alt=''; im.loading='lazy';
+  b.appendChild(im);
+  b.addEventListener('click',async()=>{
+    b.disabled=true;
+    try{
+      const r=await fetch(`https://picsum.photos/seed/${seed}/1600/1067.jpg`);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      processBlob(await r.blob(),'contoh-'+seed);
+    }catch(e){ toast('Contoh gagal dimuat — periksa koneksi',true); }
+    b.disabled=false;
+  });
+  $('#samples').appendChild(b);
+});
+
+/* ── kontrol ── */
+function paintSlider(el){
+  const p=(el.value-el.min)/(el.max-el.min)*100;
+  el.style.background=`linear-gradient(90deg,#F0A33A ${p}%,rgba(234,231,220,.22) ${p}%)`;
+}
+document.querySelectorAll('.cmap').forEach(el=>{
+  el.querySelector('.sw').style.background=
+    `linear-gradient(90deg,${CMAPS[el.dataset.cmap].map(s=>`${s[1]} ${s[0]*100}%`).join(',')})`;
+  el.addEventListener('click',()=>{
+    document.querySelectorAll('.cmap').forEach(x=>x.classList.remove('on'));
+    el.classList.add('on');
+    S.cmap=el.dataset.cmap;
+    if(S.hasResult){ buildDepthCanvas(); if(S.mode==='2d') draw2D(); }
+  });
+});
+els.relief.addEventListener('input',()=>{
+  S.relief=+els.relief.value/100;
+  els.reliefVal.textContent=els.relief.value+'%';
+  paintSlider(els.relief);
+  if(S.mode==='3d') applyRelief();
+});
+els.invert.addEventListener('click',()=>{
+  S.invert=!S.invert;
+  els.invert.classList.toggle('on',S.invert);
+  if(S.hasResult){
+    computeFloat(); buildDepthCanvas();
+    if(S.mode==='2d') draw2D();
+    S.dirty3d=true;
+    if(S.mode==='3d') build3D();
   }
 });
 
-/* ---------- inisialisasi ---------- */
-if(window.lucide)lucide.createIcons();
-renderProtocol();
-syncAutoSeg();
-setView('depth');
-updateReadout();
-log('BASRELIEF v2.1 — atelier depth map untuk CNC &amp; Vectric Aspire');
-log('baru: <span class="k">PAHAT STRUKTUR</span> (kontras pahatan dalam) + mode <span class="k">IMPOR depth map AI</span>');
-log('semua komputasi berjalan <span class="k">lokal</span> — tidak ada gambar yang dikirim ke server');
+function setMode(m){
+  if(m===S.mode) return;
+  if(m==='3d'&&!S.hasResult) return;
+  S.mode=m;
+  els.tab2d.classList.toggle('on',m==='2d');
+  els.tab3d.classList.toggle('on',m==='3d');
+  els.cwrap.style.display=m==='2d'?'block':'none';
+  els.threeWrap.style.display=m==='3d'?'block':'none';
+  els.hint.textContent=m==='2d'
+    ?'GESER KNOB UNTUK MEMBANDING · ARAHKAN KURSOR UNTUK NILAI Z'
+    :'SERET UNTUK MEMUTAR · SCROLL UNTUK ZOOM';
+  els.dlLabel.textContent=m==='2d'?'UNDUH PETA PNG':'UNDUH RENDER PNG';
+  if(m==='3d') requestAnimationFrame(()=>{ resize3D(); if(S.dirty3d) build3D(); });
+  else draw2D();
+}
+els.tab2d.addEventListener('click',()=>setMode('2d'));
+els.tab3d.addEventListener('click',()=>setMode('3d'));
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  if(e.key==='1') setMode('2d');
+  if(e.key==='2') setMode('3d');
+});
+
+/* unduh */
+function saveBlob(b,name){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(b); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  toast('Tersimpan: '+name);
+}
+els.dl.addEventListener('click',()=>{
+  if(!S.hasResult){ toast('Belum ada hasil untuk diunduh',true); return; }
+  if(S.mode==='2d') depthCanvas.toBlob(b=>saveBlob(b,`depth-map-${S.cmap}.png`));
+  else{ renderer.render(scene,camera); renderer.domElement.toBlob(b=>saveBlob(b,'relief-3d.png')); }
+});
+
+/* responsif terhadap ukuran viewport */
+new ResizeObserver(()=>{ draw2D(); resize3D(); }).observe(els.viewport);
+
+/* boot */
+if(window.lucide) lucide.createIcons();
+paintSlider(els.relief);
+updateMeta();
+initModel();
 </script>
 </body>
 </html>
