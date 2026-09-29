@@ -1,26 +1,26 @@
 /* ═══════════════════════════════════════════════════════════════
-   engine.js v3 — inti perhitungan heightmap (MURNI, tanpa DOM).
-
-   PERUBAHAN v3 (anti-saturasi, meniru struktur bas-relief):
-   · Interior dipusatkan di slab abu-abu (CENTER), bukan dipetakan 0..1
-   · Bentuk besar & detail = MODULASI bertanda di sekitar slab
-   · Semua modulasi di-soft-clip tanh → interior dijamin 0.06..0.94,
-     tidak pernah clip putih, tidak ada terasi saat Z-scale ekstrem
-   · Stretch puncak DIHAPUS (penyebab blowout v2)
+   engine.js v5 — karakter sculptok: smoothed-grayscale relief.
+   Pipeline sengaja MINIMAL:
+     sinyal → halus kuat (clay) → normalisasi persentil →
+     emergence ramp → blur akhir.
+   Tidak ada kubah / auto-gain / tanh — dibuang karena menjadi
+   sumber kegagalan versi sebelumnya.
    ═══════════════════════════════════════════════════════════════ */
 export const CFG = {
-  MAX_DIM: 1600,        // sisi terpanjang proses (px)
-  PAD: 0.07,            // bingkai agar rambat tepi selalu punya ruang
-  RAMP_FRAC: 0.03,      // lebar emergence = 3% sisi terpendek (min 24, maks 140 px)
-  DOME_FRAC: 0.38,      // kubah mencapai puncak pada 38% jarak-maks
-  BULGE_MIN: 0.80,      // tinggi bahu kubah di dekat tepi
-  CENTER: 0.50,         // ketinggian slab interior (abu-abu tengah)
-  SCULPT_AMP: 0.30,     // amplitudo bentuk besar (terang=naik, gelap=turun)
-  DET_AMP: 0.14,        // batas lembut detail mikro (asimtot tanh)
-  G1_TARGET: 0.035, G1_MIN: 0.5, G1_MAX: 3.5,   // auto-gain band sedang
-  G2_TARGET: 0.022, G2_MIN: 0.4, G2_MAX: 4.0,   // auto-gain band halus
-  LO_PCT: 2, HI_PCT: 98,                        // persentil auto-level (longgar)
-  SMOOTH_FRAC: 0.0025,  // radius smoothing akhir = 0.25% sisi terpendek
+  MAX_DIM: 1600,
+  PAD: 0.07,
+  W_LUM: 0.75,          // bobot luminance
+  W_CHROMA: 0.25,       // bobot chroma (angkat elemen berwarna; 0 utk foto)
+  R_FORM: 0.022,        // radius halus BESAR = kekuatan "clay" (slider smooth sculptok)
+  R_MID: 0.0045,        // radius sedang → definisi bentuk antara
+  MID_GAIN: 0.35,       // porsi definisi sedang (0 = full clay, 1 = lebih tajam)
+  LO_PCT: 1.0,          // persentil gelap subjek → lantai
+  HI_PCT: 99.2,         // persentil terang subjek → puncak
+  OUT_LO: 0.08,         // nilai lembah interior (jangan 0 → tetap terbaca)
+  OUT_HI: 0.97,         // nilai puncak (jangan 1 → tanpa plateau putih)
+  RAMP_FRAC: 0.025,     // lebar emergence = 2.5% sisi terpendek
+  RAMP_MIN: 16, RAMP_MAX: 64,
+  FINAL_BLUR: 0.004,    // blur akhir: bahu siluet membulat
 };
 
 export const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -55,14 +55,14 @@ export function blur(src, dst, tmp, W, H, r) {
   boxBlurH(src, tmp, W, H, r); boxBlurV(tmp, dst, W, H, r);
 }
 
-/* ── guided filter self-guided (edge-preserving → look "dipahat") ── */
+/* ── guided filter self-guided (halus kuat, tepi terjaga) ── */
 export function guidedSelf(src, W, H, R, eps, out) {
   const n = W * H;
   const mI = new Float32Array(n), a = new Float32Array(n), b = new Float32Array(n);
   const ma = new Float32Array(n), mb = new Float32Array(n), tmp = new Float32Array(n);
-  blur(src, mI, tmp, W, H, R);                       // mean(I)
+  blur(src, mI, tmp, W, H, R);
   for (let i = 0; i < n; i++) { const d = src[i] - mI[i]; a[i] = d * d; }
-  blur(a, b, tmp, W, H, R);                          // var(I)
+  blur(a, b, tmp, W, H, R);
   for (let i = 0; i < n; i++) { const v = b[i]; a[i] = v / (v + eps); }
   for (let i = 0; i < n; i++) b[i] = mI[i] * (1 - a[i]);
   blur(a, ma, tmp, W, H, R); blur(b, mb, tmp, W, H, R);
@@ -100,7 +100,7 @@ export function edt(mask, W, H, out) {
   }
 }
 
-/* ── ukur warna & toleransi latar dari tepi gambar ASLI (pra-pad) ── */
+/* ── ukur warna & toleransi latar dari tepi gambar ASLI ── */
 export function measureBackground(data, w, h) {
   const nb = 2 * (w + h);
   const R = new Float32Array(nb), G = new Float32Array(nb), B = new Float32Array(nb);
@@ -119,10 +119,11 @@ export function measureBackground(data, w, h) {
   return { bg, tol2 };
 }
 
-/* ── segmentasi subjek: alpha, atau flood-fill jarak warna dari tepi ── */
+/* ── segmentasi subjek + lum & chroma ── */
 export function segment(rgbData, W, H, bg, tol2) {
   const n = W * H;
   const lum = new Float32Array(n);
+  const chroma = new Float32Array(n);
   const mask = new Uint8Array(n);
   let transp = 0;
   for (let i = 3; i < n * 4; i += 4) if (rgbData[i] < 250) transp++;
@@ -130,9 +131,11 @@ export function segment(rgbData, W, H, bg, tol2) {
   if (transp > n * 0.02) {
     mode = 'ALPHA';
     for (let i = 0; i < n; i++) {
-      const o = i * 4, a = rgbData[o + 3];
-      mask[i] = a >= 128 ? 1 : 0;
-      lum[i] = (rgbData[o] * 0.2126 + rgbData[o + 1] * 0.7152 + rgbData[o + 2] * 0.0722) / 255 * (a / 255);
+      const o = i * 4, a = rgbData[o + 3] / 255;
+      mask[i] = rgbData[o + 3] >= 128 ? 1 : 0;
+      const r = rgbData[o], g = rgbData[o + 1], b = rgbData[o + 2];
+      lum[i] = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 255 * a;
+      chroma[i] = (Math.max(r, g, b) - Math.min(r, g, b)) / 255 * a;
     }
   } else {
     const bgm = new Uint8Array(n), stack = new Int32Array(n); let sp = 0;
@@ -152,98 +155,83 @@ export function segment(rgbData, W, H, bg, tol2) {
     for (let i = 0; i < n; i++) mask[i] = bgm[i] ? 0 : 1;
     mode = 'LATAR-OTOMATIS';
     for (let i = 0; i < n; i++) {
-      const o = i * 4;
-      lum[i] = (rgbData[o] * 0.2126 + rgbData[o + 1] * 0.7152 + rgbData[o + 2] * 0.0722) / 255;
+      const o = i * 4, r = rgbData[o], g = rgbData[o + 1], b = rgbData[o + 2];
+      lum[i] = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 255;
+      chroma[i] = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
     }
   }
-  /* rapikan tepi mask: close 1 px */
-  {
+  { /* close 1 px */
     const t1 = new Float32Array(n), t2 = new Float32Array(n);
     for (let i = 0; i < n; i++) t1[i] = mask[i];
     blur(t1, t2, t1, W, H, 1);
     for (let i = 0; i < n; i++) mask[i] = t2[i] > 0.5 ? 1 : 0;
   }
-  return { mask, lum, mode };
+  return { mask, lum, chroma, mode };
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   buildHeightmap v3 — komposisi terpusat + soft-clip tanh.
-   Struktur tonal keluaran = struktur bas-relief:
-   latar 0 (hitam) · slab interior ~0.50 · bentuk ±0.30 · detail ±0.14
+   buildHeightmap v5 — minimal & deterministik.
    ═══════════════════════════════════════════════════════════════ */
-export function buildHeightmap(mask, lum, W, H) {
+export function buildHeightmap(mask, lum, chroma, W, H) {
   const n = W * H, mind = Math.min(W, H), C = CFG;
 
-  /* 1 · coverage & fallback full-frame */
+  /* 1 · coverage & fallback */
   let cnt = 0; for (let i = 0; i < n; i++) cnt += mask[i];
   const cover = cnt / n;
   const fullFrame = cover < 0.02 || cover > 0.99;
   if (fullFrame) mask.fill(1);
 
-  /* 2 · distance field: emergence + kubah */
+  /* 2 · distance field (emergence saja — TIDAK ada kubah) */
   const dist = new Float32Array(n);
-  let dmax = 1;
-  if (!fullFrame) {
-    edt(mask, W, H, dist);
-    for (let i = 0; i < n; i++) if (dist[i] > dmax) dmax = dist[i];
-  } else dist.fill(mind);
+  if (!fullFrame) edt(mask, W, H, dist);
+  else dist.fill(mind);
 
-  /* 3 · dekomposisi multiscale (guided filter 2 skala) */
-  const base = new Float32Array(n), mid = new Float32Array(n);
-  guidedSelf(lum, W, H, Math.max(4, Math.round(0.018 * mind)), 0.04, base);
-  guidedSelf(lum, W, H, Math.max(2, Math.round(0.004 * mind)), 0.02, mid);
-  const micro = new Float32Array(n), fine = new Float32Array(n);
-  for (let i = 0; i < n; i++) { micro[i] = mid[i] - base[i]; fine[i] = lum[i] - mid[i]; }
+  /* 3 · sinyal gabungan lum+chroma */
+  const src = new Float32Array(n);
+  for (let i = 0; i < n; i++)
+    src[i] = mask[i] ? C.W_LUM * lum[i] + C.W_CHROMA * chroma[i] : 0;
 
-  /* 4 · auto-level BERTANDA: persentil 2–98 dalam subjek → -1..+1
-         (dipusatkan, bukan dipetakan 0..1 — inilah anti-blowout utama) */
-  {
-    const hist = new Uint32Array(256); let m2 = 0;
-    for (let i = 0; i < n; i++) if (mask[i]) { hist[Math.min(255, (base[i] * 255) | 0)]++; m2++; }
-    if (!m2) m2 = n;
-    let acc = 0, lo = 0, hi = 255;
-    for (let b = 0; b < 256; b++) { acc += hist[b]; if (acc >= m2 * C.LO_PCT / 100) { lo = b; break; } }
-    acc = 0;
-    for (let b = 255; b >= 0; b--) { acc += hist[b]; if (acc >= m2 * C.HI_PCT / 100) { hi = b; break; } }
-    const rng = Math.max(8, hi - lo) / 255;
-    for (let i = 0; i < n; i++) {
-      let v = mask[i] ? (base[i] - lo / 255) / rng : 0.5;
-      v = clamp(v, 0, 1);
-      base[i] = v * 2 - 1;                           // -1..+1
-    }
-  }
+  /* 4 · dua skala guided: clay besar + definisi antara */
+  const form = new Float32Array(n), mid = new Float32Array(n);
+  guidedSelf(src, W, H, Math.max(3, Math.round(C.R_FORM * mind)), 0.03, form);
+  guidedSelf(src, W, H, Math.max(2, Math.round(C.R_MID * mind)), 0.015, mid);
+  const sig = new Float32Array(n);
+  for (let i = 0; i < n; i++) sig[i] = form[i] + C.MID_GAIN * (mid[i] - form[i]);
 
-  /* 5 · auto-gain detail dari RMS (pengganti slider DETAIL) */
-  const rms = arr => {
-    let s = 0, c = 0;
-    for (let i = 0; i < n; i++) if (mask[i]) { s += arr[i] * arr[i]; c++; }
-    return c ? Math.sqrt(s / c) : 0;
-  };
-  const g1 = clamp(C.G1_TARGET / Math.max(rms(micro), 1e-4), C.G1_MIN, C.G1_MAX);
-  const g2 = clamp(C.G2_TARGET / Math.max(rms(fine), 1e-4), C.G2_MIN, C.G2_MAX);
+  /* 5 · normalisasi persentil dalam subjek → jendela OUT_LO..OUT_HI */
+  const hist = new Uint32Array(256); let m2 = 0;
+  for (let i = 0; i < n; i++) if (mask[i]) { hist[Math.min(255, (sig[i] * 255) | 0)]++; m2++; }
+  if (!m2) m2 = n;
+  let acc = 0, lo = 0, hi = 255;
+  for (let b = 0; b < 256; b++) { acc += hist[b]; if (acc >= m2 * C.LO_PCT / 100) { lo = b; break; } }
+  acc = 0;
+  for (let b = 255; b >= 0; b--) { acc += hist[b]; if (acc >= m2 * C.HI_PCT / 100) { hi = b; break; } }
+  const rng = Math.max(10, hi - lo) / 255;
 
-  /* 6 · MERGE — slab terpusat + modulasi bertanda + soft-clip tanh
-         x = CENTER + SCULPT·base + DET_AMP·tanh(det/DET_AMP)
-         → interior terjamin CENTER ± (0.30 + 0.14) = 0.06..0.94        */
-  const h = new Float32Array(n);
-  const rw = clamp(mind * C.RAMP_FRAC, 24, 140);
+  const val = new Float32Array(n);
   for (let i = 0; i < n; i++) {
-    if (!mask[i]) { h[i] = 0; continue; }
-    const d = dist[i];
-    const rise = fullFrame ? 1 : ss(d / rw);
-    const bul  = fullFrame ? 1 : C.BULGE_MIN + (1 - C.BULGE_MIN) * ss(d / (C.DOME_FRAC * dmax));
-    const det  = g1 * micro[i] + g2 * fine[i];
-    const x = C.CENTER + C.SCULPT_AMP * base[i] + C.DET_AMP * Math.tanh(det / C.DET_AMP);
-    h[i] = clamp(rise * bul * x, 0, 1);
+    if (!mask[i]) { val[i] = 0; continue; }
+    let v = (sig[i] - lo / 255) / rng;
+    v = v < 0 ? 0 : v > 1 ? 1 : v;
+    val[i] = C.OUT_LO + (C.OUT_HI - C.OUT_LO) * v;
   }
 
-  /* 7 · smoothing akhir ringan */
+  /* 6 · emergence ramp */
+  const rw = clamp(mind * C.RAMP_FRAC, C.RAMP_MIN, C.RAMP_MAX);
+  const h = new Float32Array(n);
+  if (fullFrame) h.set(val);
+  else for (let i = 0; i < n; i++) h[i] = ss(dist[i] / rw) * val[i];
+
+  /* 7 · blur akhir — bahu siluet membulat ke hitam */
   {
-    const r = Math.max(1, Math.round(mind * C.SMOOTH_FRAC));
-    const t = new Float32Array(n);
-    blur(h, t, new Float32Array(n), W, H, r);
+    const r = Math.max(1, Math.round(mind * C.FINAL_BLUR));
+    const t = new Float32Array(n), tmp = new Float32Array(n);
+    blur(h, t, tmp, W, H, r);
     for (let i = 0; i < n; i++) h[i] = clamp(t[i], 0, 1);
   }
 
-  return { h, stats: { mode: fullFrame ? 'FULL-FRAME' : 'SUBJEK', cover, g1, g2, rw: Math.round(rw) } };
+  return {
+    h,
+    stats: { mode: fullFrame ? 'FULL-FRAME' : 'SUBJEK', cover, g: C.MID_GAIN, rw: Math.round(rw) },
+  };
 }
