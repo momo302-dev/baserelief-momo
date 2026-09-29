@@ -4,383 +4,71 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RELIEF — Gambar → Heightmap CNC (Otomatis)</title>
-<meta name="description" content="Gambar → heightmap grayscale otomatis untuk Vectric Aspire / CNC. Guided-filter sculpt, tanpa pengaturan manual. 100% lokal + mode AI opsional.">
 <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect x="3" y="3" width="26" height="26" fill="none" stroke="%23F0A33A" stroke-width="2"/><path d="M6 24c4-2 6-14 10-14s6 12 10 14" fill="none" stroke="%23F0A33A" stroke-width="2"/></svg>'>
 <style>
-  :root{
-    --bg:#0D0E0B; --line:rgba(234,231,220,.09); --line2:rgba(234,231,220,.22);
-    --ink:#EBE8DE; --dim:#8E8A7C; --amber:#F0A33A; --err:#E5484D;
-    --mono:'IBM Plex Mono',ui-monospace,monospace;
-  }
+  :root{--bg:#0D0E0B;--line:rgba(234,231,220,.09);--line2:rgba(234,231,220,.22);
+    --ink:#EBE8DE;--dim:#8E8A7C;--amber:#F0A33A;--err:#E5484D;
+    --mono:'IBM Plex Mono',ui-monospace,monospace}
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--ink);font-family:'Archivo',system-ui,sans-serif;min-height:100dvh;display:flex;flex-direction:column}
   ::selection{background:var(--amber);color:#141310}
   button{font-family:inherit}
-
-  header{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:57px;border-bottom:1px solid var(--line);flex:none}
-  .brand{display:flex;align-items:center;gap:13px;min-width:0}
-  .brand svg{width:20px;height:20px;flex:none}
-  .brand h1{font-size:14px;font-weight:700;letter-spacing:.2em;white-space:nowrap}
-  .brand span{font:500 9.5px var(--mono);color:var(--dim);letter-spacing:.12em;padding-left:13px;border-left:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .chip{font:500 9.5px var(--mono);letter-spacing:.14em;color:var(--dim);border:1px solid var(--line);padding:7px 11px;flex:none;white-space:nowrap}
-
+  header{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:57px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:13px}
+  .brand svg{width:20px;height:20px}
+  .brand h1{font-size:14px;font-weight:700;letter-spacing:.2em}
+  .brand span{font:500 9.5px var(--mono);color:var(--dim);letter-spacing:.12em;padding-left:13px;border-left:1px solid var(--line)}
+  .chip{font:500 9.5px var(--mono);letter-spacing:.14em;color:var(--dim);border:1px solid var(--line);padding:7px 11px}
   main{flex:1;display:grid;place-items:center;padding:22px 20px}
   #col{width:min(960px,100%);display:flex;flex-direction:column;gap:12px}
-
   #frame{position:relative;border:1px solid var(--line);min-height:min(420px,54vh);display:flex;align-items:center;justify-content:center;padding:16px;transition:border-color .15s}
   #frame.hot{border-color:var(--amber)}
-  .tick{position:absolute;width:12px;height:12px;pointer-events:none;border:0 solid var(--line2)}
-  .tick.tl{top:-1px;left:-1px;border-top-width:2px;border-left-width:2px}
-  .tick.tr{top:-1px;right:-1px;border-top-width:2px;border-right-width:2px}
-  .tick.bl{bottom:-1px;left:-1px;border-bottom-width:2px;border-left-width:2px}
-  .tick.br{bottom:-1px;right:-1px;border-bottom-width:2px;border-right-width:2px}
-
   #empty{cursor:pointer;text-align:center;padding:24px}
   #empty h2{font-size:clamp(30px,4.4vw,52px);font-weight:700;line-height:1.05;text-transform:uppercase}
-  #empty h2 em{font-style:normal;color:transparent;-webkit-text-stroke:1.4px var(--amber)}
+  #empty em{font-style:normal;color:transparent;-webkit-text-stroke:1.4px var(--amber)}
   #empty p{font:400 10.5px/1.9 var(--mono);color:var(--dim);letter-spacing:.1em;margin-top:14px}
-  .kbd{border:1px solid var(--line2);padding:1px 6px;color:var(--ink)}
-
-  #out,#aiImg{display:none;max-width:100%;max-height:min(58vh,740px);outline:1px solid var(--line)}
-  #out{cursor:pointer}
-  #aiBadge{display:none;position:absolute;top:10px;right:10px;font:600 9px var(--mono);letter-spacing:.2em;color:#141310;background:var(--amber);padding:5px 9px;z-index:3}
-
-  #dropHint{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font:600 12px var(--mono);letter-spacing:.34em;color:var(--amber);background:rgba(13,14,11,.6);z-index:4;pointer-events:none}
-  #frame.hot #dropHint{display:flex}
-
-  #aiPanel{display:none;gap:10px;flex-wrap:wrap;align-items:center;border:1px dashed var(--line2);padding:12px 14px}
-  #aiPanel.open{display:flex}
-  #aiPanel label{font:600 9.5px var(--mono);letter-spacing:.16em;color:var(--dim)}
-  #keyIn{flex:1;min-width:220px;background:#151612;border:1px solid var(--line2);color:var(--ink);font:500 11px var(--mono);padding:9px 11px;outline:none}
-  #keyIn:focus{border-color:var(--amber)}
-  .mini{background:none;border:1px solid var(--line2);color:var(--dim);font:600 9.5px var(--mono);letter-spacing:.14em;padding:8px 12px;cursor:pointer;transition:.15s}
-  .mini:hover{border-color:var(--amber);color:var(--amber)}
-  #aiPanel a{font:500 9.5px var(--mono);color:var(--amber);letter-spacing:.08em}
-  #aiPanel .pv{font:400 9px var(--mono);color:var(--dim);letter-spacing:.06em;width:100%}
-
+  #out{display:none;max-width:100%;max-height:min(58vh,740px);cursor:pointer;outline:1px solid var(--line)}
   #actions{display:flex;justify-content:space-between;align-items:center;gap:14px;min-height:44px;flex-wrap:wrap}
-  #meta{font:400 9.5px var(--mono);color:var(--dim);letter-spacing:.1em;line-height:1.7}
+  #meta{font:400 9.5px var(--mono);color:var(--dim);letter-spacing:.08em;line-height:1.7}
   #meta b{color:var(--ink);font-weight:500}
-  #dlbar{display:flex;gap:8px;flex:none;flex-wrap:wrap}
+  #dlbar{display:flex;gap:8px}
   .dl{display:flex;align-items:center;gap:8px;padding:11px 15px;border:1px solid var(--line2);background:none;color:var(--ink);font:600 10px var(--mono);letter-spacing:.14em;cursor:pointer;transition:.15s}
   .dl:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
   .dl:disabled{opacity:.3;cursor:not-allowed}
   .dl.pri{border-color:var(--amber);color:var(--amber)}
-  .dl.ai{border-style:dashed}
-
-  footer{flex:none;border-top:1px solid var(--line);padding:8px 20px;min-height:38px;display:flex;align-items:center;justify-content:space-between;gap:14px;font:400 9px var(--mono);color:var(--dim);letter-spacing:.08em;white-space:nowrap;overflow:hidden}
-
   #toasts{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:50}
-  .toast{background:#151612;border:1px solid var(--line2);border-left:2px solid var(--amber);padding:11px 15px;font:500 11px var(--mono);letter-spacing:.04em;animation:tin .2s ease;max-width:340px}
+  .toast{background:#151612;border:1px solid var(--line2);border-left:2px solid var(--amber);padding:11px 15px;font:500 11px var(--mono);animation:tin .2s ease}
   .toast.err{border-left-color:var(--err)}
   @keyframes tin{from{opacity:0;transform:translateY(6px)}}
-
-  @media (max-width:680px){ .brand span{display:none} #actions{flex-direction:column;align-items:stretch} #dlbar .dl{flex:1;justify-content:center} }
+  @media(max-width:680px){.brand span{display:none}#actions{flex-direction:column;align-items:stretch}#dlbar .dl{flex:1;justify-content:center}}
 </style>
 </head>
 <body>
-
 <header>
   <div class="brand">
-    <svg viewBox="0 0 22 22" fill="none">
-      <rect x="1.5" y="1.5" width="19" height="19" stroke="#F0A33A" stroke-width="1.5"/>
-      <path d="M4 16c3-1.5 4.5-9 7-9s4 7.5 7 9" stroke="#F0A33A" stroke-width="1.4"/>
-    </svg>
-    <h1>RELIEF</h1>
-    <span>GAMBAR → HEIGHTMAP CNC · SEMUA PARAMETER OTOMATIS · TANPA SERVER</span>
+    <svg viewBox="0 0 22 22" fill="none"><rect x="1.5" y="1.5" width="19" height="19" stroke="#F0A33A" stroke-width="1.5"/><path d="M4 16c3-1.5 4.5-9 7-9s4 7.5 7 9" stroke="#F0A33A" stroke-width="1.4"/></svg>
+    <h1>RELIEF</h1><span>OTOMATIS · TANPA SERVER · ENGINE & APP TERPISAH</span>
   </div>
   <div class="chip" id="chip">SIAP</div>
 </header>
-
-<main>
-  <div id="col">
-    <div id="frame">
-      <span class="tick tl"></span><span class="tick tr"></span>
-      <span class="tick bl"></span><span class="tick br"></span>
-      <span id="aiBadge">HASIL AI</span>
-
-      <div id="empty">
-        <h2>JATUHKAN<br><em>GAMBAR</em>&nbsp;DI SINI</h2>
-        <p>KLIK · SERET &amp; LEPAS · TEMPEL <span class="kbd">Ctrl</span>+<span class="kbd">V</span><br>
-        TANPA PENGATURAN — SEGMENTASI, DETAIL, RAMBAT &amp; HALUS DIHITUNG OTOMATIS<br>
-        PNG 16-BIT SIAP ASPIRE · OPSIONAL: MODE AI GEMINI</p>
-      </div>
-
-      <canvas id="out" title="Klik untuk mengganti gambar"></canvas>
-      <img id="aiImg" alt="hasil AI">
-      <div id="dropHint">LEPASKAN GAMBAR</div>
+<main><div id="col">
+  <div id="frame">
+    <div id="empty">
+      <h2>JATUHKAN<br><em>GAMBAR</em>&nbsp;DI SINI</h2>
+      <p>KLIK · SERET &amp; LEPAS · TEMPEL CTRL+V<br>TANPA PENGATURAN — SEMUA DIHITUNG OTOMATIS · PNG 16-BIT SIAP ASPIRE</p>
     </div>
-
-    <div id="aiPanel">
-      <label>GEMINI KEY</label>
-      <input id="keyIn" type="password" placeholder="tempel API key gratis dari AI Studio">
-      <button class="mini" id="keySave">SIMPAN</button>
-      <button class="mini" id="keyDel">HAPUS</button>
-      <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">ambil key gratis →</a>
-      <span class="pv">key disimpan lokal di browser Anda · saat mode AI dipakai, gambar dikirim ke Google (bukan lokal lagi)</span>
-    </div>
-
-    <div id="actions">
-      <div id="meta">Klik / jatuhkan berkas untuk memuat gambar</div>
-      <div id="dlbar">
-        <button class="dl pri" id="dl16" disabled>UNDUH PNG 16-BIT</button>
-        <button class="dl" id="dl8" disabled>PNG 8-BIT</button>
-        <button class="dl ai" id="aiBtn" disabled>AI RELIEF · GEMINI</button>
-        <button class="dl ai" id="dlAi" disabled style="display:none">UNDUH HASIL AI</button>
-      </div>
+    <canvas id="out" title="Klik untuk mengganti gambar"></canvas>
+  </div>
+  <div id="actions">
+    <div id="meta">Klik / jatuhkan berkas untuk memuat gambar</div>
+    <div id="dlbar">
+      <button class="dl pri" id="dl16" disabled>UNDUH PNG 16-BIT</button>
+      <button class="dl" id="dl8" disabled>PNG 8-BIT</button>
     </div>
   </div>
-</main>
-
-<footer>
-  <span>ASPIRE: IMPORT BITMAP → CREATE COMPONENT FROM AN IMAGE · ENGINE LOKAL DETERMINISTIK · MODE AI = REGENERASI</span>
-  <span>PRIVASI: MODE LOKAL 100% OFFLINE</span>
-</footer>
-
+</div></main>
 <div id="toasts"></div>
 <input type="file" id="fileInput" accept="image/*" hidden>
-
-<script>
-'use strict';
-const $=s=>document.querySelector(s);
-const els={frame:$('#frame'),empty:$('#empty'),out:$('#out'),aiImg:$('#aiImg'),aiBadge:$('#aiBadge'),
-  chip:$('#chip'),meta:$('#meta'),fileInput:$('#fileInput'),
-  aiPanel:$('#aiPanel'),keyIn:$('#keyIn'),dl16:$('#dl16'),dl8:$('#dl8'),aiBtn:$('#aiBtn'),dlAi:$('#dlAi')};
-
-const MAX_DIM=(navigator.deviceMemory&&navigator.deviceMemory<6)?1280:1800;
-const PADF=0.07;
-const clamp=(v,a,b)=>v<a?a:v>b?b:v;
-const ss=x=>x<=0?0:x>=1?1:x*x*(3-2*x);
-
-const S={loaded:false,W:0,H:0,n:0,name:'gambar',srcW:0,srcH:0,bmp:null,rgbData:null,g16:null,aiBlob:null};
-
-function toast(msg,isErr=false){
-  const t=document.createElement('div');t.className='toast'+(isErr?' err':'');t.textContent=msg;
-  $('#toasts').appendChild(t);
-  setTimeout(()=>{t.style.transition='opacity .3s';t.style.opacity='0';setTimeout(()=>t.remove(),320);},4200);
-}
-const chip=t=>els.chip.textContent=t;
-
-/* ── box blur separable O(n) ── */
-function boxBlurH(src,dst,W,H,r){
-  const inv=1/(2*r+1),last=W-1;
-  for(let y=0;y<H;y++){const row=y*W;let sum=0;
-    for(let x=-r;x<=r;x++)sum+=src[row+(x<0?0:x>last?last:x)];
-    for(let x=0;x<W;x++){dst[row+x]=sum*inv;
-      const xa=x+r+1,xd=x-r;
-      sum+=src[row+(xa>last?last:xa)]-src[row+(xd<0?0:xd)];}}
-}
-function boxBlurV(src,dst,W,H,r){
-  const inv=1/(2*r+1),last=H-1;
-  for(let x=0;x<W;x++){let sum=0;
-    for(let y=-r;y<=r;y++)sum+=src[(y<0?0:y>last?last:y)*W+x];
-    for(let y=0;y<H;y++){dst[y*W+x]=sum*inv;
-      const ya=y+r+1,yd=y-r;
-      sum+=src[(ya>last?last:ya)*W+x]-src[(yd<0?0:yd)*W+x];}}
-}
-const blur=(src,dst,tmp,W,H,r)=>{boxBlurH(src,tmp,W,H,r);boxBlurV(tmp,dst,W,H,r);};
-
-/* ── guided filter self-guided: smoothing edge-preserving → look "dipahat" ── */
-function guidedSelf(src,W,H,R,eps,out,pool){
-  const mI=pool.get(),a=pool.get(),b=pool.get(),ma=pool.get(),mb=pool.get(),tmp=pool.get();
-  blur(src,mI,tmp,W,H,R);                               // mean(I)
-  for(let i=0,n=W*H;i<n;i++){const d=src[i]-mI[i];a[i]=d*d;}
-  blur(a,b,tmp,W,H,R);                                  // var(I)
-  for(let i=0,n=W*H;i<n;i++){const v=b[i];a[i]=v/(v+eps);}
-  for(let i=0,n=W*H;i<n;i++){b[i]=mI[i]*(1-a[i]);}
-  blur(a,ma,tmp,W,H,R); blur(b,mb,tmp,W,H,R);
-  for(let i=0,n=W*H;i<n;i++){out[i]=ma[i]*src[i]+mb[i];}
-  pool.put(mI);pool.put(a);pool.put(b);pool.put(ma);pool.put(mb);pool.put(tmp);
-}
-
-/* ── exact euclidean distance transform (Felzenszwalb) ── */
-function edt1d(f,n,d,v,z){
-  let k=0;v[0]=0;z[0]=-1e12;z[1]=1e12;
-  for(let q=1;q<n;q++){
-    let s2=((f[q]+q*q)-(f[v[k]]+v[k]*v[k]))/(2*q-2*v[k]);
-    while(s2<=z[k]){k--;s2=((f[q]+q*q)-(f[v[k]]+v[k]*v[k]))/(2*q-2*v[k]);}
-    k++;v[k]=q;z[k]=s2;z[k+1]=1e12;
-  }
-  k=0;
-  for(let q=0;q<n;q++){
-    while(z[k+1]<q)k++;
-    const dq=q-v[k];d[q]=dq*dq+f[v[k]];
-  }
-}
-function edt(mask,W,H,out){
-  const m=Math.max(W,H);
-  const f=new Float64Array(m),d=new Float64Array(m),v=new Int32Array(m),z=new Float64Array(m+1);
-  for(let x=0;x<W;x++){
-    for(let y=0;y<H;y++)f[y]=mask[y*W+x]?1e12:0;
-    edt1d(f,H,d,v,z);
-    for(let y=0;y<H;y++)out[y*W+x]=d[y];
-  }
-  for(let y=0;y<H;y++){
-    const row=y*W;
-    for(let x=0;x<W;x++)f[x]=out[row+x];
-    edt1d(f,W,d,v,z);
-    for(let x=0;x<W;x++)out[row+x]=Math.sqrt(d[x]);
-  }
-}
-
-/* ── muat gambar: ukur warna tepi → pad → data piksel ── */
-async function loadImage(blob,name){
-  let bmp;
-  try{bmp=await createImageBitmap(blob,{imageOrientation:'from-image'});}
-  catch(e){toast('Gagal membaca gambar',true);return;}
-  if(S.bmp&&S.bmp.close)S.bmp.close();
-  S.bmp=bmp;
-
-  const sc=Math.min(1,MAX_DIM/Math.max(bmp.width,bmp.height));
-  const w0=Math.max(4,Math.round(bmp.width*sc)),h0=Math.max(4,Math.round(bmp.height*sc));
-
-  const c0=document.createElement('canvas');c0.width=w0;c0.height=h0;
-  const x0=c0.getContext('2d',{willReadFrequently:true});
-  x0.drawImage(bmp,0,0,w0,h0);
-  const d0=x0.getImageData(0,0,w0,h0).data;
-
-  const nb=2*(w0+h0),br=new Float32Array(nb),bg=new Float32Array(nb),bb=new Float32Array(nb);
-  let q=0;
-  const take=i=>{br[q]=d0[i];bg[q]=d0[i+1];bb[q]=d0[i+2];q++;};
-  for(let x=0;x<w0;x++){take(x*4);take(((h0-1)*w0+x)*4);}
-  for(let y=1;y<h0-1;y++){take(y*w0*4);take((y*w0+w0-1)*4);}
-  const med=a=>{const s=Float32Array.from(a).sort();return s[s.length>>1];};
-
-  const px=Math.round(w0*PADF),py=Math.round(h0*PADF);
-  const W=w0+px*2,H=h0+py*2,n=W*H;
-  const c=document.createElement('canvas');c.width=W;c.height=H;
-  const x=c.getContext('2d',{willReadFrequently:true});
-  x.fillStyle=`rgb(${med(br)|0},${med(bg)|0},${med(bb)|0})`;
-  x.fillRect(0,0,W,H);
-  x.drawImage(bmp,px,py,w0,h0);
-
-  S.rgbData=x.getImageData(0,0,W,H).data;
-  S.W=W;S.H=H;S.n=n;
-  S.name=(name||'gambar').replace(/\.[^.]+$/,'');
-  S.srcW=bmp.width;S.srcH=bmp.height;
-  S.g16=new Uint16Array(n);S.aiBlob=null;
-
-  S.loaded=true;
-  els.out.style.display='block';els.aiImg.style.display='none';els.aiBadge.style.display='none';
-  els.empty.style.display='none';
-  els.dl16.disabled=els.dl8.disabled=els.aiBtn.disabled=false;
-  els.dlAi.style.display='none';els.dlAi.disabled=true;
-  chip('MENGHITUNG…');
-  setTimeout(prepare,30);
-}
-
-/* ── pipeline otomatis penuh (tanpa parameter manual) ── */
-function prepare(){
-  const t0=performance.now();
-  const W=S.W,H=S.H,n=S.n,rgbData=S.rgbData,mind=Math.min(W,H);
-  const pool={a:[],get(){return this.a.length?this.a.pop():new Float32Array(n);},put(x){this.a.push(x);}};
-
-  /* 1 · luminance + mask subjek */
-  const lum=pool.get();
-  let transp=0;
-  for(let i=3;i<n*4;i+=4)if(rgbData[i]<250)transp++;
-  const alphaMode=transp>n*0.02;
-  const mask=new Uint8Array(n);
-  let mode;
-  if(alphaMode){
-    for(let i=0;i<n;i++){const o=i*4;
-      mask[i]=rgbData[o+3]>=128?1:0;
-      lum[i]=(rgbData[o]*0.2126+rgbData[o+1]*0.7152+rgbData[o+2]*0.0722)/255*(rgbData[o+3]/255);}
-    mode='ALPHA';
-  }else{
-    const nb2=2*(W+H),br=new Float32Array(nb2),bg=new Float32Array(nb2),bb=new Float32Array(nb2);
-    let q=0;
-    const take=i=>{br[q]=rgbData[i];bg[q]=rgbData[i+1];bb[q]=rgbData[i+2];q++;};
-    for(let x=0;x<W;x++){take(x*4);take(((H-1)*W+x)*4);}
-    for(let y=1;y<H-1;y++){take(y*W*4);take((y*W+W-1)*4);}
-    const med=a=>{const s=Float32Array.from(a).sort();return s[s.length>>1];};
-    const mr=med(br),mg=med(bg),mb=med(bb);
-    const ds=new Float32Array(nb2);
-    for(let i=0;i<nb2;i++){const dr=br[i]-mr,dg=bg[i]-mg,db=bb[i]-mb;ds[i]=dr*dr+dg*dg+db*db;}
-    const tol2=Math.min(9025,Math.max(400,Float32Array.from(ds).sort()[Math.floor(nb2*0.9)]*1.6+60));
-
-    const bgm=new Uint8Array(n),stack=new Int32Array(n);let sp=0;
-    const push=i=>{if(!bgm[i]){const o=i*4,dr=rgbData[o]-mr,dg=rgbData[o+1]-mg,db=rgbData[o+2]-mb;
-      if(dr*dr+dg*dg+db*db<=tol2){bgm[i]=1;stack[sp++]=i;}}};
-    for(let x=0;x<W;x++){push(x);push((H-1)*W+x);}
-    for(let y=0;y<H;y++){push(y*W);push(y*W+W-1);}
-    while(sp>0){const i=stack[--sp],xx=i%W,yy=(i/W)|0;
-      if(xx>0)push(i-1);if(xx<W-1)push(i+1);
-      if(yy>0)push(i-W);if(yy<H-1)push(i+W);}
-    for(let i=0;i<n;i++)mask[i]=bgm[i]?0:1;
-    mode='LATAR-OTOMATIS';
-    for(let i=0;i<n;i++){const o=i*4;
-      lum[i]=(rgbData[o]*0.2126+rgbData[o+1]*0.7152+rgbData[o+2]*0.0722)/255;}
-  }
-
-  { /* close 1px: rapikan tepi mask */
-    const t1=pool.get(),t2=pool.get();
-    for(let i=0;i<n;i++)t1[i]=mask[i];
-    blur(t1,t2,t1,W,H,1);
-    for(let i=0;i<n;i++)mask[i]=t2[i]>0.5?1:0;
-    pool.put(t1);pool.put(t2);
-  }
-
-  let cnt=0;for(let i=0;i<n;i++)cnt+=mask[i];
-  const cover=cnt/n,fullFrame=(cnt<n*0.02||cnt>n*0.99);
-  if(fullFrame){mask.fill(1);mode='FULL-FRAME';}
-
-  /* 2 · distance field → emergence & kubah */
-  const dist=pool.get();
-  let dmax=1;
-  if(!fullFrame){
-    edt(mask,W,H,dist);
-    for(let i=0;i<n;i++)if(dist[i]>dmax)dmax=dist[i];
-  }else dist.fill(mind);
-
-  /* 3 · guided filter besar (sculpt) + kecil (mid) → band detail */
-  const base=pool.get(),mid=pool.get();
-  const R1=Math.max(6,Math.round(0.022*mind)),R2=Math.max(2,Math.round(0.005*mind));
-  guidedSelf(lum,W,H,R1,0.05,base,pool);
-  guidedSelf(lum,W,H,R2,0.02,mid,pool);
-
-  const micro=pool.get(),fine=pool.get();
-  for(let i=0;i<n;i++){micro[i]=mid[i]-base[i];fine[i]=lum[i]-mid[i];}
-
-  /* 4 · auto-level dasar (persentil 1–99 dalam subjek) + kurva kosinus */
-  const hist=new Uint32Array(256);let m2=0;
-  for(let i=0;i<n;i++)if(mask[i]){hist[Math.min(255,(base[i]*255)|0)]++;m2++;}
-  if(!m2)m2=n;
-  let acc=0,lo=0,hi=255;
-  for(let b=0;b<256;b++){acc+=hist[b];if(acc>=m2*0.01){lo=b;break;}}
-  acc=0;for(let b=255;b>=0;b--){acc+=hist[b];if(acc>=m2*0.99){hi=b;break;}}
-  const rng=Math.max(8,hi-lo)/255;
-  for(let i=0;i<n;i++){
-    let v=mask[i]?(base[i]-lo/255)/rng:0;
-    v=clamp(v,0,1);
-    base[i]=0.5-0.5*Math.cos(Math.PI*v);
-  }
-
-  /* 5 · gain detail OTOMATIS dari RMS (pengganti slider DETAIL) */
-  const rms=arr=>{let s=0,c=0;for(let i=0;i<n;i++)if(mask[i]){s+=arr[i]*arr[i];c++;}
-    return c?Math.sqrt(s/c):0;};
-  const g1=clamp(0.045/Math.max(rms(micro),1e-4),0.6,4.0);
-  const g2=clamp(0.030/Math.max(rms(fine),1e-4),0.5,5.0);
-  pool.put(micro);pool.put(fine);pool.put(mid);
-
-  /* 6 · gabung: emergence S-curve × kubah × slab + sculpt + detail */
-  const h=pool.get(),t=pool.get();
-  const rw=clamp(0.03*mind,24,140);                    // OTOMATIS: 3% sisi terpendek
-  for(let i=0;i<n;i++){
-    if(!mask[i]){h[i]=0;continue;}
-    const d=dist[i];
-    const rise=fullFrame?1:ss(d/rw);
-    const bul=fullFrame?1:0.72+0.28*ss(d/(0.38*dmax));
-    let v=rise*bul*(0.32+0.68*base[i])+rise*(g1*(mid2[i]=0,0));
-    void v;void mid2;
-  }
-  void h;void t;
-
-  /* — blok 6 di atas sengaja diganti versi bersih berikut — */
-  pool.put(h);pool.put(t);pool.put(base);pool.put(dist);
-  chip('SIAP');
-  void t0;void mode;void cover;void g1;void g2;void rw;
-}
-</script>
+<script type="module" src="./app.js"></script>
 </body>
 </html>
