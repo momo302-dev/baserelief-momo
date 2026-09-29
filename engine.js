@@ -1,22 +1,26 @@
 /* ═══════════════════════════════════════════════════════════════
-   engine.js — inti perhitungan heightmap (MURNI, tanpa DOM).
-   Semua angka penyetelan ada di CFG. Ubah di sini, bukan di app.js.
-   Pipeline: segmentasi → distance field → guided filter →
-             auto-level → auto-gain → merge → halus → stretch.
+   engine.js v3 — inti perhitungan heightmap (MURNI, tanpa DOM).
+
+   PERUBAHAN v3 (anti-saturasi, meniru struktur bas-relief):
+   · Interior dipusatkan di slab abu-abu (CENTER), bukan dipetakan 0..1
+   · Bentuk besar & detail = MODULASI bertanda di sekitar slab
+   · Semua modulasi di-soft-clip tanh → interior dijamin 0.06..0.94,
+     tidak pernah clip putih, tidak ada terasi saat Z-scale ekstrem
+   · Stretch puncak DIHAPUS (penyebab blowout v2)
    ═══════════════════════════════════════════════════════════════ */
 export const CFG = {
   MAX_DIM: 1600,        // sisi terpanjang proses (px)
-  PAD: 0.07,            // bingkai 7% agar rambat tepi selalu punya ruang
-  RAMP_FRAC: 0.03,      // lebar emergence = 3% sisi terpendek (min 24 px, maks 140)
+  PAD: 0.07,            // bingkai agar rambat tepi selalu punya ruang
+  RAMP_FRAC: 0.03,      // lebar emergence = 3% sisi terpendek (min 24, maks 140 px)
   DOME_FRAC: 0.38,      // kubah mencapai puncak pada 38% jarak-maks
-  SLAB: 0.32,           // lantai abu-abu interior (anti "gelap total")
-  SCULPT: 0.68,         // porsi sculpt dari auto-level luminance
-  BULGE_MIN: 0.72,      // tinggi bahu kubah di dekat tepi
-  G1_TARGET: 0.045, G1_MIN: 0.6, G1_MAX: 4.0,   // auto-gain detail sedang
-  G2_TARGET: 0.030, G2_MIN: 0.5, G2_MAX: 5.0,   // auto-gain detail halus
-  LO_PCT: 1, HI_PCT: 99,                        // persentil auto-level dasar
-  SMOOTH_FRAC: 0.003,   // radius smoothing akhir = 0.3% sisi terpendek
-  TOP_PCT: 99.6,        // persentil puncak → dipetakan ke putih penuh
+  BULGE_MIN: 0.80,      // tinggi bahu kubah di dekat tepi
+  CENTER: 0.50,         // ketinggian slab interior (abu-abu tengah)
+  SCULPT_AMP: 0.30,     // amplitudo bentuk besar (terang=naik, gelap=turun)
+  DET_AMP: 0.14,        // batas lembut detail mikro (asimtot tanh)
+  G1_TARGET: 0.035, G1_MIN: 0.5, G1_MAX: 3.5,   // auto-gain band sedang
+  G2_TARGET: 0.022, G2_MIN: 0.4, G2_MAX: 4.0,   // auto-gain band halus
+  LO_PCT: 2, HI_PCT: 98,                        // persentil auto-level (longgar)
+  SMOOTH_FRAC: 0.0025,  // radius smoothing akhir = 0.25% sisi terpendek
 };
 
 export const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -96,7 +100,7 @@ export function edt(mask, W, H, out) {
   }
 }
 
-/* ── ukur warna & toleransi latar dari tepi gambar ASLI (sebelum pad) ── */
+/* ── ukur warna & toleransi latar dari tepi gambar ASLI (pra-pad) ── */
 export function measureBackground(data, w, h) {
   const nb = 2 * (w + h);
   const R = new Float32Array(nb), G = new Float32Array(nb), B = new Float32Array(nb);
@@ -162,7 +166,11 @@ export function segment(rgbData, W, H, bg, tol2) {
   return { mask, lum, mode };
 }
 
-/* ── bangun heightmap (otomatis penuh) — mengembalikan h 0..1 ── */
+/* ═══════════════════════════════════════════════════════════════
+   buildHeightmap v3 — komposisi terpusat + soft-clip tanh.
+   Struktur tonal keluaran = struktur bas-relief:
+   latar 0 (hitam) · slab interior ~0.50 · bentuk ±0.30 · detail ±0.14
+   ═══════════════════════════════════════════════════════════════ */
 export function buildHeightmap(mask, lum, W, H) {
   const n = W * H, mind = Math.min(W, H), C = CFG;
 
@@ -180,14 +188,15 @@ export function buildHeightmap(mask, lum, W, H) {
     for (let i = 0; i < n; i++) if (dist[i] > dmax) dmax = dist[i];
   } else dist.fill(mind);
 
-  /* 3 · guided filter: dasar (sculpt) + sedang → band detail */
+  /* 3 · dekomposisi multiscale (guided filter 2 skala) */
   const base = new Float32Array(n), mid = new Float32Array(n);
-  guidedSelf(lum, W, H, Math.max(6, Math.round(0.022 * mind)), 0.05, base);
-  guidedSelf(lum, W, H, Math.max(2, Math.round(0.005 * mind)), 0.02, mid);
+  guidedSelf(lum, W, H, Math.max(4, Math.round(0.018 * mind)), 0.04, base);
+  guidedSelf(lum, W, H, Math.max(2, Math.round(0.004 * mind)), 0.02, mid);
   const micro = new Float32Array(n), fine = new Float32Array(n);
   for (let i = 0; i < n; i++) { micro[i] = mid[i] - base[i]; fine[i] = lum[i] - mid[i]; }
 
-  /* 4 · auto-level dasar di dalam subjek → kurva kosinus (anti hard-clip) */
+  /* 4 · auto-level BERTANDA: persentil 2–98 dalam subjek → -1..+1
+         (dipusatkan, bukan dipetakan 0..1 — inilah anti-blowout utama) */
   {
     const hist = new Uint32Array(256); let m2 = 0;
     for (let i = 0; i < n; i++) if (mask[i]) { hist[Math.min(255, (base[i] * 255) | 0)]++; m2++; }
@@ -198,9 +207,9 @@ export function buildHeightmap(mask, lum, W, H) {
     for (let b = 255; b >= 0; b--) { acc += hist[b]; if (acc >= m2 * C.HI_PCT / 100) { hi = b; break; } }
     const rng = Math.max(8, hi - lo) / 255;
     for (let i = 0; i < n; i++) {
-      let v = mask[i] ? (base[i] - lo / 255) / rng : 0;
+      let v = mask[i] ? (base[i] - lo / 255) / rng : 0.5;
       v = clamp(v, 0, 1);
-      base[i] = 0.5 - 0.5 * Math.cos(Math.PI * v);
+      base[i] = v * 2 - 1;                           // -1..+1
     }
   }
 
@@ -213,7 +222,9 @@ export function buildHeightmap(mask, lum, W, H) {
   const g1 = clamp(C.G1_TARGET / Math.max(rms(micro), 1e-4), C.G1_MIN, C.G1_MAX);
   const g2 = clamp(C.G2_TARGET / Math.max(rms(fine), 1e-4), C.G2_MIN, C.G2_MAX);
 
-  /* 6 · MERGE — emergence S-curve × kubah × slab+sculpt, + detail ter-gate */
+  /* 6 · MERGE — slab terpusat + modulasi bertanda + soft-clip tanh
+         x = CENTER + SCULPT·base + DET_AMP·tanh(det/DET_AMP)
+         → interior terjamin CENTER ± (0.30 + 0.14) = 0.06..0.94        */
   const h = new Float32Array(n);
   const rw = clamp(mind * C.RAMP_FRAC, 24, 140);
   for (let i = 0; i < n; i++) {
@@ -221,8 +232,9 @@ export function buildHeightmap(mask, lum, W, H) {
     const d = dist[i];
     const rise = fullFrame ? 1 : ss(d / rw);
     const bul  = fullFrame ? 1 : C.BULGE_MIN + (1 - C.BULGE_MIN) * ss(d / (C.DOME_FRAC * dmax));
-    const v = rise * bul * (C.SLAB + C.SCULPT * base[i]) + rise * (g1 * micro[i] + g2 * fine[i]);
-    h[i] = clamp(v, 0, 1);
+    const det  = g1 * micro[i] + g2 * fine[i];
+    const x = C.CENTER + C.SCULPT_AMP * base[i] + C.DET_AMP * Math.tanh(det / C.DET_AMP);
+    h[i] = clamp(rise * bul * x, 0, 1);
   }
 
   /* 7 · smoothing akhir ringan */
@@ -233,16 +245,5 @@ export function buildHeightmap(mask, lum, W, H) {
     for (let i = 0; i < n; i++) h[i] = clamp(t[i], 0, 1);
   }
 
-  /* 8 · peregangan puncak → putih penuh (lantai & latar tidak disentuh) */
-  let hiV = 1;
-  {
-    const hist = new Uint32Array(256); let c2 = 0;
-    for (let i = 0; i < n; i++) if (mask[i] && h[i] > 0.02) { hist[Math.min(255, (h[i] * 255) | 0)]++; c2++; }
-    if (c2) {
-      let acc = 0;
-      for (let b = 255; b >= 0; b--) { acc += hist[b]; if (acc >= c2 * (100 - C.TOP_PCT) / 100) { hiV = b / 255; break; } }
-      if (hiV < 1) for (let i = 0; i < n; i++) h[i] = clamp(h[i] / hiV, 0, 1);
-    }
-  }
   return { h, stats: { mode: fullFrame ? 'FULL-FRAME' : 'SUBJEK', cover, g1, g2, rw: Math.round(rw) } };
 }
