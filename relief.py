@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""relief.py — gambar → heightmap CNC (otomatis). Algoritma = engine.js.
+"""relief.py v3 — gambar → heightmap CNC (otomatis). Cermin engine.js v3.
 Pemakaian:
     python relief.py masukan.png
     python relief.py masukan.png -o hasil.png --max-dim 2048 --invert
@@ -10,16 +10,18 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
-# ── KONSTANTA (cermin CFG di engine.js — ubah di sini saat kalibrasi) ──
-PAD_FRAC  = 0.07
-RAMP_FRAC = 0.03
-DOME_FRAC = 0.38
-SLAB, SCULPT, BULGE_MIN = 0.32, 0.68, 0.72
-G1_T, G1_LO, G1_HI = 0.045, 0.6, 4.0
-G2_T, G2_LO, G2_HI = 0.030, 0.5, 5.0
-LO_PCT, HI_PCT = 1, 99
-SMOOTH_FRAC = 0.003
-TOP_PCT = 99.6
+# ── KONSTANTA (cermin CFG di engine.js v3 — ubah berpasangan) ──
+PAD_FRAC   = 0.07
+RAMP_FRAC  = 0.03
+DOME_FRAC  = 0.38
+BULGE_MIN  = 0.80
+CENTER     = 0.50     # slab abu-abu interior
+SCULPT_AMP = 0.30     # amplitudo bentuk besar (signed)
+DET_AMP    = 0.14     # batas lembut detail (tanh)
+G1_T, G1_LO, G1_HI = 0.035, 0.5, 3.5
+G2_T, G2_LO, G2_HI = 0.022, 0.4, 4.0
+LO_PCT, HI_PCT = 2, 98
+SMOOTH_FRAC = 0.0025
 
 def smoothstep(x):
     x = np.clip(x, 0.0, 1.0)
@@ -29,7 +31,6 @@ def box(img, r):
     return ndimage.uniform_filter(img, size=2 * r + 1, mode='reflect')
 
 def guided(I, r, eps):
-    """Guided filter self-guided — identik dengan guidedSelf() di engine.js."""
     mI = box(I, r)
     var = np.maximum(box(I * I, r) - mI * mI, 0)
     a = var / (var + eps)
@@ -37,7 +38,6 @@ def guided(I, r, eps):
     return box(a, r) * I + box(b, r)
 
 def measure_background(rgb):
-    """Warna latar (median tepi) + toleransi kuadrat — identik engine.js."""
     b = np.concatenate([rgb[0], rgb[-1], rgb[:, 0], rgb[:, -1]]).astype(np.float32)
     bg = np.median(b, axis=0)
     d2 = ((b - bg) ** 2).sum(axis=1)
@@ -53,9 +53,7 @@ def load(path, max_dim):
     w0, h0 = max(4, round(w * sc)), max(4, round(h * sc))
     img = img.resize((w0, h0), Image.LANCZOS)
     arr = np.asarray(img).astype(np.float32)
-    rgb0 = arr[..., :3]
-    alpha = arr[..., 3] / 255.0 if has_alpha else None
-    return rgb0, alpha
+    return arr[..., :3], (arr[..., 3] / 255.0 if has_alpha else None)
 
 def segment(rgb0, alpha, bg, tol2):
     h0, w0 = rgb0.shape[:2]
@@ -82,6 +80,7 @@ def segment(rgb0, alpha, bg, tol2):
     return mask, lum
 
 def build(mask, lum):
+    """v3: slab terpusat + modulasi bertanda + soft-clip tanh."""
     H, W = lum.shape
     mind = min(W, H)
     cover = mask.mean()
@@ -92,37 +91,33 @@ def build(mask, lum):
     dist = ndimage.distance_transform_edt(mask) if not full else np.full_like(lum, mind)
     dmax = max(dist.max(), 1.0)
 
-    R1 = max(6, round(0.022 * mind)); R2 = max(2, round(0.005 * mind))
-    base = guided(lum, R1, 0.05)
+    R1 = max(4, round(0.018 * mind)); R2 = max(2, round(0.004 * mind))
+    base = guided(lum, R1, 0.04)
     mid  = guided(lum, R2, 0.02)
     micro, fine = mid - base, lum - mid
 
-    # auto-level dasar (persentil di dalam subjek) + kurva kosinus
+    # auto-level BERTANDA: persentil 2–98 → -1..+1 (dipusatkan, anti-blowout)
     vals = base[mask]
     lo, hi = np.percentile(vals, [LO_PCT, HI_PCT])
-    v = np.clip((base - lo) / max(hi - lo, 8 / 255), 0, 1)
-    base = np.where(mask, 0.5 - 0.5 * np.cos(np.pi * v), 0).astype(np.float32)
+    rng = max(hi - lo, 8 / 255)
+    v = np.clip((base - lo) / rng, 0, 1)
+    base = np.where(mask, v * 2 - 1, 0.5).astype(np.float32)
 
     # auto-gain dari RMS
-    rms = lambda a: np.sqrt((a[mask] ** 2).mean()) if mask.any() else 0.0
+    rms = lambda a: float(np.sqrt((a[mask] ** 2).mean())) if mask.any() else 0.0
     g1 = float(np.clip(G1_T / max(rms(micro), 1e-4), G1_LO, G1_HI))
     g2 = float(np.clip(G2_T / max(rms(fine), 1e-4), G2_LO, G2_HI))
 
-    # merge
+    # merge: x = CENTER + SCULPT·base + DET_AMP·tanh(det/DET_AMP)
     rw = float(np.clip(mind * RAMP_FRAC, 24, 140))
     rise = np.ones_like(lum) if full else smoothstep(dist / rw)
     bul = np.ones_like(lum) if full else BULGE_MIN + (1 - BULGE_MIN) * smoothstep(dist / (DOME_FRAC * dmax))
-    h = rise * bul * (SLAB + SCULPT * base) + rise * (g1 * micro + g2 * fine)
-    h = np.clip(h, 0, 1)
+    det = g1 * micro + g2 * fine
+    x = CENTER + SCULPT_AMP * base + DET_AMP * np.tanh(det / DET_AMP)
+    h = np.clip(rise * bul * x, 0, 1)
 
-    # smoothing + peregangan puncak
     r = max(1, round(mind * SMOOTH_FRAC))
     h = np.clip(box(h, r), 0, 1)
-    sel = mask & (h > 0.02)
-    if sel.any():
-        hiV = np.percentile(h[sel], TOP_PCT)
-        if hiV < 1:
-            h = np.clip(h / hiV, 0, 1)
     h[~mask] = 0
     stats = dict(mode='FULL-FRAME' if full else 'SUBJEK', cover=cover, g1=g1, g2=g2, rw=round(rw))
     return h, stats
